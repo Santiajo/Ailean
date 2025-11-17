@@ -1,0 +1,43 @@
+:root {
+  --background: #0F172A;
+  --foreground: #E5E7EB;
+  --accent: #3B82F6;
+  --scroll-thumb: #6B7280;
+  --scroll-track: #1F2937;
+
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  background-color: #0F172A;
+  color: #E5E7EB;
+  font-family: 'Poppins', sans-serif; 
+}
+
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) var(--scroll-track);
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: var(--scroll-track);
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: var(--scroll-thumb);
+  border-radius: 4px;
+}
