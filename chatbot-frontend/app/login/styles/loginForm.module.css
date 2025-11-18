@@ -1,0 +1,159 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
+
+.loginForm {
+  font-family: 'Poppins', sans-serif;
+  width: 100%;
+  display: flex;
+  min-width: 314px; 
+  flex-direction: column;
+  gap: 60px;
+  padding: 30px 25px;
+  border-radius: 15px;
+  background: #1e293b;
+  color: white;
+  box-sizing: border-box;
+  align-items: center;
+}
+
+.loginForm h2 {
+  width: 90%;
+  max-width: 500px;
+  min-width: 300px;
+  text-align: left;
+  font-size: 1.8rem;
+  margin-bottom: 10px;
+}
+
+.inputWrapper,
+.passwordWrapper {
+  position: relative;
+  width: 100%;
+  max-width: 500px;
+  min-width: 300px;
+}
+
+.inputWrapper input,
+.passwordWrapper input {
+  width: 100%;
+  height: 60px;
+  padding: 12px 15px;
+  border-radius: 10px;
+  border: 1px solid #3b4757;
+  background: #2a3748;
+  color: #fff;
+  font-size: 1rem;
+  box-sizing: border-box;
+  outline: none;
+  font-family: 'Poppins', sans-serif;
+}
+
+.passwordWrapper input {
+  padding-right: 45px; 
+}
+
+.inputWrapper input::placeholder,
+.passwordWrapper input::placeholder {
+  color: #ccc;
+}
+
+.inputWrapper input:focus,
+.passwordWrapper input:focus {
+  border-color: #589cf0;
+  background: #2f4155;
+}
+
+.eyeIcon {
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  color: #ccc;
+  z-index: 2;
+  transition: color 0.2s ease;
+}
+
+.eyeIcon svg {
+  width: 24px;
+  height: 24px;
+  pointer-events: none;
+}
+
+.passwordWrapper input:focus + .eyeIcon {
+  color: #589cf0;
+}
+
+.loginForm button {
+  background: #1e40af;
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 12px 15px;
+  border-radius: 10px;
+  width: 100%;
+  height: 60px;
+  max-width: 500px;
+  transition: background 0.2s ease;
+  font-family: 'Poppins', sans-serif;
+}
+
+.loginForm button:hover {
+  background: #1e3a8a;
+}
+
+.forgotPassword {
+  width: 90%;
+  max-width: 500px;
+  min-width: 300px;
+  text-align: right;
+  font-size: 0.9rem;
+  color: #a0aec0;
+  cursor: pointer;
+  margin-top: -5px;
+  margin-bottom: 10px;
+  transition: color 0.2s ease;
+}
+
+.forgotPassword:hover {
+  color: #96befa;
+}
+
+@media (max-width: 1025px) {
+  .loginForm {
+    width: 100%;
+    padding: 30px 15px;
+    gap: 20px; 
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .loginForm h2 {
+    font-size: 1.6rem; 
+  }
+
+  .inputWrapper, .passwordWrapper {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .inputWrapper input,
+  .passwordWrapper input,
+  .loginForm button {
+    width: 100%; 
+    font-size: 1rem;
+    padding: 12px 15px;
+  }
+
+  .loginForm button {
+    height: 50px;
+  }
+
+  .forgotPassword {
+    font-size: 0.9rem;
+    margin-top: 10px;
+    text-align: center;
+  }
+}

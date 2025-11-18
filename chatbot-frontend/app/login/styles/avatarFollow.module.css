@@ -1,0 +1,92 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
+
+.avatarContainer { 
+  width: 500px;
+  height: 500px;
+  position: relative;
+  transition: transform 0.4s ease-out;
+}
+
+.avatarBodyContainer,
+.avatarBody,
+.avatarHead,
+.avatarHeadImage {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  object-fit: contain;
+  border-radius: 10px;
+}
+
+.avatarHead {
+  z-index: 2;
+  pointer-events: none;
+  transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
+}
+
+.avatarEye {
+  position: absolute;
+  width: 120px;
+  height: auto;
+  pointer-events: none;
+  transition: transform 0.45s cubic-bezier(0.25, 0.1, 0.25, 1), filter 0.3s ease-out;
+  will-change: transform;
+  z-index: 3;
+}
+
+.avatarContainer:hover .avatarEye {
+  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.8)); 
+}
+
+.avatarContainer:hover {
+  transform: scale(1.1);
+}
+
+.messageBubble {
+  position: absolute;
+  top: -10px;
+  left: -330px;
+  background-color: #fff;
+  color: black;
+  padding: 12px 24px;
+  border-radius: 50px;
+  font-size: 1.3rem;
+  font-family: 'Poppins', sans-serif;
+  font-weight: bold;
+  opacity: 0;
+  animation: bubbleAnimation 1s forwards;
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.5);
+  border: 1px solid #9b9b9b;
+  z-index: 5;
+}
+
+.messageBubble::after {
+  content: '';
+  position: absolute;
+  bottom: -35px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 15px;
+  border-style: solid;
+  border-color: #f3f3f3 transparent transparent transparent;
+}
+
+@keyframes bubbleAnimation {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) translateX(-50%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) translateX(-50%);
+  }
+}
+
+@media (max-width: 1025px) {
+  .avatarContainer {
+    display: none;
+  }
+
+}
