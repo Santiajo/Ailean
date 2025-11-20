@@ -1,30 +1,75 @@
 "use client"; 
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import styles from "../styles/loginForm.module.css";
 
 export default function LoginForm() {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  // Estados para manejar errores y carga visualmente
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  const router = useRouter();
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Email:", email);
-    console.log("Password:", password);
+    setError("");
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("http://localhost:8000/api/login/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ 
+            username: username,
+            password: password 
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Guardar tokens (Access y Refresh)
+        localStorage.setItem("accessToken", data.access);
+        localStorage.setItem("refreshToken", data.refresh);
+
+        // Redirigir al usuario
+        console.log("Login exitoso!");
+        router.push("/chat");
+      } else {
+        // Si falla (401), mostrar error
+        setError("Credenciales incorrectas. Intenta de nuevo.");
+      }
+    } catch (err) {
+      console.error("Error de red:", err);
+      setError("Error al conectar con el servidor.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
   <form onSubmit={handleLogin} className={styles.loginForm}>
     <h2>Iniciar Sesión</h2>
 
-    {/* Campo correo */}
+    {/* Mensaje de error visual */}
+    {error && <p style={{ color: "red", fontSize: "0.9rem" }}>{error}</p>}
+
+    {/* Campo correo / usuario */}
     <div className={styles.inputWrapper}>
       <input
-        type="email"
-        placeholder="Correo"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
+        type="text"
+        placeholder="Nombre de usuario"
+        value={username} 
+        onChange={(e) => setUsername(e.target.value)}
+        required
+        disabled={isLoading}
       />
     </div>
 
@@ -35,6 +80,8 @@ export default function LoginForm() {
         placeholder="Contraseña"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
+        required
+        disabled={isLoading}
       />
       <span
         className={styles.eyeIcon}
@@ -55,7 +102,9 @@ export default function LoginForm() {
 
       <div className={styles.forgotPassword}>Olvidaste tu contraseña?</div>
 
-      <button type="submit">Iniciar Sesión</button>
+      <button type="submit" disabled={isLoading}>
+        {isLoading ? "Cargando..." : "Iniciar Sesión"}
+      </button>
     </form>
   );
 }
