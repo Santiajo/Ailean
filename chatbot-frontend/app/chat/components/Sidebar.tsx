@@ -1,13 +1,24 @@
 // Sidebar.tsx
 "use client";
-import { Plus, Settings, Award, User, BarChart2 } from "lucide-react";
+import { Plus, Settings, Award, User, BarChart2, LogOut } from "lucide-react";
 import styles from "../css/Sidebar.module.css";
+import { useRouter } from "next/navigation";
 
 interface SidebarProps {
   children?: React.ReactNode;
 }
 
 export default function Sidebar({ children }: SidebarProps) {
+  const router = useRouter();
+
+  const handleLogout = () => {
+    // Eliminar tokens de localStorage
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    // Redirigir al login
+    router.push("/login");
+  };
+
   return (
     <div className={styles.sidebar}>
       {/* Parte superior */}
@@ -47,6 +58,10 @@ export default function Sidebar({ children }: SidebarProps) {
           <li className={styles.menuItem}>
             <User size={18} />
             <span>Perfil</span>
+          </li>
+          <li className={`${styles.menuItem} ${styles.logoutItem}`} onClick={handleLogout}>
+            <LogOut size={18} />
+            <span>Cerrar Sesión</span>
           </li>
         </ul>
       </div>
