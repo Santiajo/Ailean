@@ -1,0 +1,55 @@
+.registerContainer {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+.infoSide {
+  flex: 3;
+  background: #1e293b;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+  text-align: center;
+}
+
+.formSide {
+  flex: 2;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #1e293b;
+  padding: 0;
+}
+
+@media (max-width: 1025px) {
+  .registerContainer {
+    flex-direction: column;
+    height: auto;
+    min-width: 314px;
+  }
+
+  .infoSide {
+    flex: none;
+    width: 100%;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+  }
+
+  .formSide {
+    width: 100%;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-width: 314px;
+  }
+}
