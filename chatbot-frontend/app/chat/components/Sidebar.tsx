@@ -43,7 +43,7 @@ export default function Sidebar({ children }: SidebarProps) {
       {/* Parte inferior */}
       <div className={styles.sidebarBottom}>
         <ul className={styles.menuList}>
-          <li className={styles.menuItem}>
+          <li className={styles.menuItem} onClick={() => router.push("/progress")}>
             <BarChart2 size={18} />
             <span>Progreso</span>
           </li>
