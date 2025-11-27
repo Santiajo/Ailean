@@ -1,5 +1,5 @@
 "use client";
-import { motion } from "framer-motion";
+
 import { Message } from "../hooks/useChat";
 import styles from "../css/MessageBubble.module.css";
 
@@ -14,14 +14,11 @@ export function MessageBubble({ message }: MessageBubbleProps) {
     <div
       className={`${styles.wrapper} ${isUser ? styles.userWrapper : styles.botWrapper}`}
     >
-      <motion.div
+      <div
         className={`${styles.bubble} ${isUser ? styles.user : styles.bot}`}
-        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.2 }}
       >
         {message.content}
-      </motion.div>
+      </div>
     </div>
   );
 }
