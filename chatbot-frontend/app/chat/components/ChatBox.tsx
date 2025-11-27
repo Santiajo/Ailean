@@ -14,8 +14,8 @@ export function ChatBox({ setIsTalking }: ChatBoxProps) {
   const { messages, sendMessage, isBotTyping } = useChat();
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  const handleSend = (content: string) => {
-    sendMessage(content);
+  const handleSend = (content: string | Blob, isAudio: boolean = false) => {
+    sendMessage(content, isAudio);
     setIsTalking(true);
   };
 
