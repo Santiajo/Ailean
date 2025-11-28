@@ -21,19 +21,28 @@ def transcribe_audio(audio_file):
         print(f"Error transcribing audio: {e}")
         return None
 
-def get_chat_response(messages):
+def get_chat_response(messages, stream=False):
     """
     Gets a response from OpenAI GPT-4o-mini model.
     messages: list of dictionaries [{"role": "user", "content": "..."}]
+    stream: boolean, if True returns a generator
     """
     try:
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
-            messages=messages
+            messages=messages,
+            stream=stream
         )
+        if stream:
+            return response
         return response.choices[0].message.content
     except Exception as e:
         print(f"Error getting chat response: {e}")
+        if stream:
+            # Return a generator that yields the error message
+            def error_gen():
+                yield "Lo siento, hubo un error al procesar tu solicitud."
+            return error_gen()
         return "Lo siento, hubo un error al procesar tu solicitud."
 
 def generate_speech(text):

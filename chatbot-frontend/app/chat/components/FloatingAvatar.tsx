@@ -173,8 +173,8 @@ export default function FloatingAvatar({
           <Image
             src="/avatar/accesorios/sombrero1.png"
             alt="Sombrero"
-            width={AVATAR_SIZE * 0.8} 
-            height={(AVATAR_SIZE * 0.8) * (80 / 150)} 
+            width={AVATAR_SIZE * 0.8}
+            height={(AVATAR_SIZE * 0.8) * (80 / 150)}
             className={styles.hat}
             draggable={false}
           />
