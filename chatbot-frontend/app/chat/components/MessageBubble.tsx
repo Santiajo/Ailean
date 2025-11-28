@@ -7,6 +7,9 @@ interface MessageBubbleProps {
   message: Message;
 }
 
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
 export function MessageBubble({ message }: MessageBubbleProps) {
   const isUser = message.role === "user";
 
@@ -17,7 +20,13 @@ export function MessageBubble({ message }: MessageBubbleProps) {
       <div
         className={`${styles.bubble} ${isUser ? styles.user : styles.bot}`}
       >
-        {message.content}
+        {isUser ? (
+          message.content
+        ) : (
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {message.content}
+          </ReactMarkdown>
+        )}
       </div>
     </div>
   );

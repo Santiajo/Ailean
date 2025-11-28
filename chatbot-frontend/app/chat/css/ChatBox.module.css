@@ -11,10 +11,15 @@
   flex: 1;
   overflow-y: auto;
   padding: 16px 24px;
+  padding-top: 260px;
+  /* Space for avatar */
   display: flex;
   flex-direction: column;
   gap: 8px;
   scroll-behavior: smooth;
+  position: relative;
+  z-index: 10;
+  /* Ensure text is above avatar if they do overlap */
 }
 
 .messages::-webkit-scrollbar {

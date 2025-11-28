@@ -44,13 +44,13 @@ export default function Page() {
     <div className={styles.page}>
       <Sidebar />
       <div className={styles.chatArea} ref={chatContainerRef} style={{ position: "relative" }}>
-        <ChatBox setIsTalking={setIsTalking} />
         <FloatingAvatar
           containerRef={chatContainerRef}
           isTalking={isTalking}
           color={avatarColor}
           accessories={accessories}
         />
+        <ChatBox setIsTalking={setIsTalking} />
 
         {/* Botón para abrir/cerrar personalización */}
         <button
