@@ -2,16 +2,19 @@
 
 import { ChatInput } from "./ChatInput";
 import { MessageBubble } from "./MessageBubble";
-import { useChat } from "../hooks/useChat";
+import { Message } from "../hooks/useChat";
 import { useRef, useEffect } from "react";
 import styles from "../css/ChatBox.module.css";
 
 interface ChatBoxProps {
   setIsTalking: React.Dispatch<React.SetStateAction<boolean>>;
+  messages: Message[];
+  sendMessage: (content: string | Blob, isAudio?: boolean) => Promise<void>;
+  isLoading: boolean;
+  isBotTyping: boolean;
 }
 
-export function ChatBox({ setIsTalking }: ChatBoxProps) {
-  const { messages, sendMessage, isBotTyping } = useChat();
+export function ChatBox({ setIsTalking, messages, sendMessage, isLoading, isBotTyping }: ChatBoxProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const handleSend = (content: string | Blob, isAudio: boolean = false) => {
