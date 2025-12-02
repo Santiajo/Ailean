@@ -77,7 +77,11 @@ export default function ProgressPage() {
 
   return (
     <div className={styles.page}>
-      <Sidebar />
+      <Sidebar
+        sessionId={null}
+        createNewChat={() => router.push('/chat')}
+        loadSession={(id) => router.push(`/chat?sessionId=${id}`)}
+      />
       <div className={styles.mainContent}>
         {/* Header */}
         <div className={styles.header}>
