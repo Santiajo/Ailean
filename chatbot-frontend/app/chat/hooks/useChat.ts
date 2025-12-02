@@ -3,17 +3,20 @@ import { useState, useEffect } from "react";
 import { v4 as uuid } from "uuid";
 
 export type Message = {
-  id: string;
-  role: "user" | "bot";
+  id: string | number;
+  role: "user" | "bot" | "assistant";
   content: string;
-  timestamp: number;
+  timestamp?: number;
+  isAudio?: boolean;
 };
 
 export function useChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isBotTyping, setIsBotTyping] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [audioQueue, setAudioQueue] = useState<string[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [sessionId, setSessionId] = useState<number | null>(null);
 
   // Audio Queue Effect
   useEffect(() => {
@@ -40,36 +43,51 @@ export function useChat() {
     setAudioQueue((prev) => [...prev, base64Audio]);
   };
 
-  const sendMessage = async (content: string | Blob, isAudio: boolean = false) => {
-    const tempId = uuid();
-    const botId = uuid();
-    let userMessageContent = "";
-
-    if (isAudio) {
-      userMessageContent = "Audio sent...";
-    } else {
-      userMessageContent = content as string;
+  const loadSession = async (id: number) => {
+    setSessionId(id);
+    setMessages([]); // Clear current messages
+    try {
+      const token = localStorage.getItem("accessToken");
+      const res = await fetch(`http://localhost:8000/api/sessions/${id}/messages/`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Map backend messages to frontend format
+        const mappedMessages = data.map((msg: any) => ({
+          id: msg.id,
+          role: msg.role,
+          content: msg.content,
+          isAudio: false // History is text-only for now
+        }));
+        setMessages(mappedMessages);
+      }
+    } catch (e) {
+      console.error("Error loading session:", e);
     }
+  };
 
-    const userMessage: Message = {
+  const createNewChat = () => {
+    console.log("createNewChat called");
+    setSessionId(null);
+    setMessages([]);
+    setAudioQueue([]);
+    setIsPlaying(false);
+  };
+
+  const sendMessage = async (content: string | Blob, isAudio: boolean = false) => {
+    if (!content) return;
+
+    // 1. Optimistic Update
+    const tempId = Date.now();
+    const userMsg: Message = {
       id: tempId,
       role: "user",
-      content: userMessageContent,
-      timestamp: Date.now(),
+      content: isAudio ? "🎤 Audio message..." : (content as string),
+      isAudio,
     };
-
-    // Optimistically add user message
-    setMessages((prev) => [...prev, userMessage]);
-    setIsBotTyping(true);
-
-    // Prepare bot message placeholder
-    const botMessage: Message = {
-      id: botId,
-      role: "bot",
-      content: "",
-      timestamp: Date.now(),
-    };
-    setMessages((prev) => [...prev, botMessage]);
+    setMessages((prev) => [...prev, userMsg]);
+    setIsLoading(true);
 
     try {
       const formData = new FormData();
@@ -79,12 +97,11 @@ export function useChat() {
         formData.append("message", content as string);
       }
 
-      // Send chat history for context
-      // Filter out the optimistic message we just added (tempId) and the bot placeholder (botId)
-      // Actually, we can just send the 'messages' state as it was BEFORE this update, 
-      // but 'messages' in the closure is the old state.
-      // However, we want to send the conversation so far.
-      // Let's map the current 'messages' to the format expected by OpenAI (role, content).
+      if (sessionId) {
+        formData.append("sessionId", sessionId.toString());
+      }
+
+      // Send chat history for context (optional, but good for new chats)
       const history = messages.map(m => ({ role: m.role, content: m.content }));
       formData.append("history", JSON.stringify(history));
 
@@ -94,87 +111,95 @@ export function useChat() {
         headers["Authorization"] = `Bearer ${token}`;
       }
 
+      // 2. Send Request (SSE)
       const response = await fetch("http://localhost:8000/api/chat/", {
         method: "POST",
-        headers: headers,
+        headers,
         body: formData,
       });
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          console.error("Token expired or unauthorized. Redirecting to login...");
-          localStorage.removeItem("accessToken");
-          localStorage.removeItem("refreshToken");
-          window.location.href = "/login";
-          return;
-        }
-        throw new Error("Network response was not ok");
+      if (response.status === 401) {
+        // Handle Unauthorized
+        localStorage.removeItem("accessToken");
+        window.location.href = "/login";
+        return;
       }
 
-      if (!response.body) {
-        throw new Error("No response body");
+      if (!response.ok || !response.body) {
+        throw new Error("Failed to send message");
       }
 
+      // 3. Handle Stream
       const reader = response.body.getReader();
-      const decoder = new TextDecoder("utf-8");
-      let done = false;
-      let buffer = "";
+      const decoder = new TextDecoder();
+      let botMsgId = Date.now() + 1;
+      let botContent = "";
+      let isFirstChunk = true;
+      let buffer = ""; // Buffer for handling split JSON chunks
 
-      while (!done) {
-        const { value, done: doneReading } = await reader.read();
-        done = doneReading;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
         const chunkValue = decoder.decode(value, { stream: true });
         buffer += chunkValue;
 
-        // Process complete events in buffer
+        // Split by double newline (SSE delimiter)
         const parts = buffer.split("\n\n");
-        // The last part might be incomplete, so we keep it in the buffer
-        buffer = parts.pop() || "";
+        buffer = parts.pop() || ""; // Keep the last part (potentially incomplete) in buffer
 
         for (const part of parts) {
+          if (!part.trim()) continue;
+          if (part.includes("[DONE]")) continue;
+
           if (part.startsWith("data: ")) {
-            const jsonStr = part.replace("data: ", "").trim();
-            if (jsonStr === "[DONE]") {
-              done = true;
-              break;
-            }
+            const jsonStr = part.replace("data: ", "");
             try {
               const data = JSON.parse(jsonStr);
 
-              if (data.type === "transcription") {
-                // Update user message with transcription
+              if (data.type === "session_id") {
+                setSessionId(data.id);
+              } else if (data.type === "transcription") {
+                // Update optimistic user message with real text
                 setMessages((prev) =>
-                  prev.map(msg => msg.id === tempId ? { ...msg, content: data.text } : msg)
+                  prev.map((m) =>
+                    m.id === tempId ? { ...m, content: data.text, isAudio: false } : m
+                  )
                 );
               } else if (data.type === "text_chunk") {
-                // Append text to bot message
-                setMessages((prev) =>
-                  prev.map(msg => msg.id === botId ? { ...msg, content: msg.content + data.content } : msg)
-                );
+                botContent += data.content;
+
+                setMessages((prev) => {
+                  const lastMsg = prev[prev.length - 1];
+                  if (isFirstChunk || lastMsg.role !== "assistant" || lastMsg.id !== botMsgId) {
+                    isFirstChunk = false;
+                    return [...prev, { id: botMsgId, role: "assistant", content: botContent }];
+                  } else {
+                    return prev.map((m) =>
+                      m.id === botMsgId ? { ...m, content: botContent } : m
+                    );
+                  }
+                });
               } else if (data.type === "audio") {
-                // Play audio
+                // Queue audio for playback
                 playAudio(data.data);
               }
             } catch (e) {
-              console.error("Error parsing SSE JSON", e);
+              console.error("Error parsing SSE JSON:", e);
             }
           }
         }
       }
-
     } catch (error) {
       console.error("Error sending message:", error);
-      const errorMessage: Message = {
-        id: uuid(),
-        role: "bot",
-        content: "Lo siento, hubo un error al procesar tu mensaje.",
-        timestamp: Date.now(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+      setMessages((prev) => [
+        ...prev,
+        { id: Date.now(), role: "assistant", content: "Error: Could not reach the server." },
+      ]);
     } finally {
-      setIsBotTyping(false);
+      setIsLoading(false);
     }
   };
 
-  return { messages, sendMessage, isBotTyping };
+  return { messages, sendMessage, isLoading, isPlaying, sessionId, loadSession, createNewChat };
 }

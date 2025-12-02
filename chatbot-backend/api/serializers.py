@@ -1,6 +1,6 @@
 from django.contrib.auth.models import User
 from rest_framework import serializers
-from .models import UserProfile
+from .models import UserProfile, ChatSession, ChatMessage
 
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
@@ -22,3 +22,15 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
         fields = ('username', 'level', 'xp', 'streak', 'total_time_minutes')
+
+class ChatMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ChatMessage
+        fields = ('id', 'role', 'content', 'created_at')
+
+class ChatSessionSerializer(serializers.ModelSerializer):
+    messages = ChatMessageSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = ChatSession
+        fields = ('id', 'title', 'created_at', 'updated_at', 'messages')

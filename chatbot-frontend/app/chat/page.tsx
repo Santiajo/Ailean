@@ -7,6 +7,8 @@ import styles from "./page.module.css";
 import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
+import { useChat } from "./hooks/useChat";
+
 export default function Page() {
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
   const [isTalking, setIsTalking] = useState(false);
@@ -18,6 +20,9 @@ export default function Page() {
   const [isAuthorized, setIsAuthorized] = useState(false);
 
   const [showCustomizer, setShowCustomizer] = useState(false);
+
+  // Lifted Chat State
+  const chat = useChat();
 
   const toggleAccessory = (acc: "hat" | "glasses") => {
     setAccessories((prev) => ({ ...prev, [acc]: !prev[acc] }));
@@ -42,7 +47,11 @@ export default function Page() {
 
   return (
     <div className={styles.page}>
-      <Sidebar />
+      <Sidebar
+        sessionId={chat.sessionId}
+        loadSession={chat.loadSession}
+        createNewChat={chat.createNewChat}
+      />
       <div className={styles.chatArea} ref={chatContainerRef} style={{ position: "relative" }}>
         <FloatingAvatar
           containerRef={chatContainerRef}
@@ -50,7 +59,13 @@ export default function Page() {
           color={avatarColor}
           accessories={accessories}
         />
-        <ChatBox setIsTalking={setIsTalking} />
+        <ChatBox
+          setIsTalking={setIsTalking}
+          messages={chat.messages}
+          sendMessage={chat.sendMessage}
+          isLoading={chat.isLoading}
+          isBotTyping={chat.isLoading} // Reusing isLoading as isBotTyping for now
+        />
 
         {/* Botón para abrir/cerrar personalización */}
         <button
