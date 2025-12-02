@@ -4,6 +4,9 @@ from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework import status
 from .openai_services import transcribe_audio, get_chat_response, generate_speech
+from .models import UserProfile
+from django.utils import timezone
+import datetime
 import base64
 import json
 
@@ -26,6 +29,42 @@ class ChatView(APIView):
             user_message = request.data.get('message')
             if not user_message:
                  return Response({"error": "No message or audio provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # --- Gamification Logic ---
+        if request.user.is_authenticated:
+            try:
+                profile, created = UserProfile.objects.get_or_create(user=request.user)
+                
+                # Award XP (e.g., 10 XP per message)
+                profile.xp += 10
+                
+                # Update Time (e.g., 0.5 minutes per interaction)
+                profile.total_time_minutes += 0.5
+                
+                # Update Streak
+                now = timezone.now()
+                if profile.last_activity:
+                    last_date = profile.last_activity.date()
+                    today = now.date()
+                    if last_date == today - datetime.timedelta(days=1):
+                        profile.streak += 1
+                    elif last_date < today - datetime.timedelta(days=1):
+                        profile.streak = 1 # Reset streak if missed a day
+                    elif last_date == today:
+                        pass # Already active today
+                else:
+                    profile.streak = 1
+                
+                # Level Up Logic (Simple: 100 XP per level)
+                new_level = 1 + (profile.xp // 100)
+                if new_level > profile.level:
+                    profile.level = new_level
+                    # TODO: Notify frontend of level up via SSE if possible
+                
+                profile.save()
+            except Exception as e:
+                print(f"Error updating progress: {e}")
+        # --------------------------
 
         # Generator function for StreamingHttpResponse
         def event_stream():
