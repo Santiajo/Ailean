@@ -40,6 +40,18 @@ export default function Page() {
     }
   }, [router]);
 
+  // Handle deep linking from Progress page
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const urlSessionId = searchParams ? searchParams.get('sessionId') : null;
+
+  useEffect(() => {
+    if (urlSessionId && !chat.sessionId) {
+      chat.loadSession(Number(urlSessionId));
+      // Clean up URL
+      window.history.replaceState({}, '', '/chat');
+    }
+  }, [urlSessionId, chat]);
+
   // Si no está autorizado aún, no se muestra nada del chat
   if (!isAuthorized) {
     return null;
