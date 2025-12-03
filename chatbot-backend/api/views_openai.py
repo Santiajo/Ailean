@@ -77,6 +77,33 @@ class ChatView(APIView):
         session_id = request.data.get('sessionId')
         chat_session = None
         
+        # Starter Prompts & Responses
+        starter_responses = {
+            "Quiero obtener retroalimentación": {
+                "response": "¡Hola!\n¡Qué bueno tenerte por aquí! Antes de darte retroalimentación, necesito un poquito más de información para ayudarte de forma precisa y útil.\n\n¿Sobre qué necesitas retroalimentación?\nPuede ser:\n\nUn writing (puedes subir una foto si es manuscrito, recuerda que sea legible).\n\nListening.\n\nReading.\n\nSpeaking (puedes describirme lo que dijiste).\n\nGramática o vocabulario.\n\nAlguna actividad de tu curso (Starter, Elementary, etc.).\n\nAdemás, cuéntame:\n\n¿Qué nivel/“File” estás estudiando ahora?\n\n¿Cuál es tu objetivo para esta sesión de 30 minutos?\n\n¿Te falta ponerte al día con alguna unidad o clase?\n\n¡Ganbatte! (頑張って)",
+                "mode": "feedback",
+                "system_prompt": "You are an English Tutor AI helping with feedback. Focus on correcting mistakes and explaining grammar/vocabulary. Be encouraging."
+            },
+            "Quiero aprender ingles basico": {
+                "response": "¡Hola!\n¡Qué alegría tenerte por aquí! ¿Cómo te sientes hoy?\n\nAntes de empezar, quiero organizar tu ruta de estudio para que aproveches esta sesión de 30 minutos al máximo.\n\nPara personalizar tu aprendizaje, necesito saber:\n\n¿Cuál es tu nivel actual?\n\nBásico 1 (Starter A)\n\nBásico 2 (Starter B)\n\nElementary\n(Si no sabes, ¡yo te ayudo!)\n\n¿Estás estudiando algún File específico?\nEj.: Starter File 1, File 2… (de American English File).\n\n¿Tienes alguna dificultad en particular?\n(vocabulario, gramática, listening, speaking…)\n\n¿Cuál es tu objetivo para esta sesión?\nEj.: aprender present simple, saludar en inglés, practicar conversación, etc.\n\nY también: ¿te estás poniendo al día con alguna unidad que te perdiste en clase?\n\n¡Ganbatte! がんばって",
+                "mode": "basic",
+                "system_prompt": "You are an English Tutor AI for Basic level students (A1). Use simple English, be very patient. Focus on basic vocabulary and grammar."
+            },
+            "Quiero aprender ingles elemental": {
+                "response": "¡Hola!\n¡Bienvenido/a a Chill English Bot 2.0!\nMe alegra muchísimo verte con ganas de aprender inglés en nivel Elementary.\nAntes de empezar, cuéntame:\n\n¿Cómo te sientes hoy?\n\n(¡Tu estado emocional es importante para aprender bien!)\n\n¿Cuál es tu objetivo para esta sesión de 30 minutos?\n\nPor ejemplo:\n\nGramática (present simple, past simple, countable/uncountable…)\n\nVocabulario (comida, rutinas, lugares, trabajo…)\n\nSpeaking\n\nListening\n\nRepaso general\n\nY una pregunta clave:\n\n¿En qué File vas actualmente? (Del curso Elementary: Files 1, 2 o 3).\n¿O quieres empezar desde el File 1?\n\nSi te has atrasado alguna clase, también dime para ayudarte a ponerte al día. (がんばって!)",
+                "mode": "elementary",
+                "system_prompt": "You are an English Tutor AI for Elementary level students (A2). Encourage full sentences but keep explanations simple."
+            },
+            "Quiero aprender ingles Intermedio": {
+                "response": "¡Hello, hello!\n¡Bienvenido/a a tu sesión con Chill English Bot 2.0!\n\nAntes de comenzar, cuéntame:\n\n1) ¿Cómo te sientes hoy?\n\n(Así ajustamos el ritmo de la clase)\n\n2) Objetivo de la sesión\n\n¿Qué quieres lograr en esta media hora?\n\n¿Refuerzo de gramática?\n\n¿Vocabulario específico?\n\n¿Speaking?\n\n¿Prepararte para una unidad del curso?\n\n3) Diagnóstico\n\nDices que quieres Inglés Intermedio.\nPara guiarte bien según la hoja de ruta, necesito saber:\n\n¿En qué File o unidad estás actualmente del nivel Intermediate?\n(File 7, 8, 9, 10, 11 o 12 — según el curso Regular/Intensivo)\n\n4) ¿Debes ponerte al día en alguna clase que faltaste?\n\n¡Listo para empezar cuando me digas! Ganbatte!",
+                "mode": "intermediate",
+                "system_prompt": "You are an English Tutor AI for Intermediate level students (B1/B2). You can use more complex grammar and vocabulary. Challenge the student slightly."
+            }
+        }
+
+        # Check if user message matches a starter prompt
+        starter_data = starter_responses.get(user_message.strip())
+
         if request.user.is_authenticated:
             if session_id and session_id != 'new' and session_id != 'null':
                 try:
@@ -86,12 +113,27 @@ class ChatView(APIView):
             else:
                 chat_session = ChatSession.objects.create(user=request.user, title=user_message[:30] + "...")
             
+            # Update metadata if starter prompt
+            if starter_data:
+                chat_session.metadata['mode'] = starter_data['mode']
+                chat_session.save()
+
             # Save User Message
             ChatMessage.objects.create(session=chat_session, role='user', content=user_message)
             
             # Load history from DB for context
             db_messages = chat_session.messages.order_by('created_at')
-            messages = [{"role": "system", "content": system_prompt}]
+            
+            # Determine System Prompt
+            current_system_prompt = system_prompt # Default
+            if chat_session.metadata.get('mode'):
+                # Find the system prompt for the mode
+                for key, val in starter_responses.items():
+                    if val['mode'] == chat_session.metadata.get('mode'):
+                        current_system_prompt = val['system_prompt']
+                        break
+            
+            messages = [{"role": "system", "content": current_system_prompt}]
             for msg in db_messages:
                 messages.append({"role": msg.role, "content": msg.content})
         else:
@@ -110,13 +152,47 @@ class ChatView(APIView):
             messages.append({"role": "user", "content": user_message})
         # ------------------------------------------
 
+        # Special handling for Starter Prompts: Return static response immediately (simulated stream)
+        if starter_data:
+            def starter_stream():
+                if chat_session:
+                     yield f"data: {json.dumps({'type': 'session_id', 'id': chat_session.id})}\n\n"
+                
+                response_text = starter_data['response']
+                
+                # Simulate chunking
+                chunk_size = 20
+                for i in range(0, len(response_text), chunk_size):
+                    chunk = response_text[i:i+chunk_size]
+                    yield f"data: {json.dumps({'type': 'text_chunk', 'content': chunk})}\n\n"
+                
+                # Generate audio for the FULL cleaned response
+                cleaned_full_text = clean_text_for_speech(response_text)
+                if cleaned_full_text:
+                    audio_content = generate_speech(cleaned_full_text)
+                    if audio_content:
+                        audio_base64 = base64.b64encode(audio_content).decode('utf-8')
+                        yield f"data: {json.dumps({'type': 'audio', 'data': audio_base64})}\n\n"
+
+                if chat_session:
+                    ChatMessage.objects.create(session=chat_session, role='assistant', content=response_text)
+                
+                yield "data: [DONE]\n\n"
+            
+            return StreamingHttpResponse(starter_stream(), content_type='text/event-stream')
+
         stream = get_chat_response(messages, stream=True)
         
         full_response_text = ""
         buffer = ""
+        speech_buffer = "" # Accumulate sentences for smoother speech
+
+        def clean_text_for_speech(text):
+            # Remove content in parentheses (e.g., translations)
+            return re.sub(r'\s*\(.*?\)', '', text).strip()
 
         def event_stream():
-            nonlocal full_response_text, buffer
+            nonlocal full_response_text, buffer, speech_buffer
             # Send session ID to frontend so it can update URL/state
             if chat_session:
                  yield f"data: {json.dumps({'type': 'session_id', 'id': chat_session.id})}\n\n"
@@ -137,16 +213,29 @@ class ChatView(APIView):
                         sentence = buffer[:match.end()]
                         buffer = buffer[match.end():]
                         
-                        # Generate audio for this sentence
-                        audio_content = generate_speech(sentence)
-                        if audio_content:
-                            audio_base64 = base64.b64encode(audio_content).decode('utf-8')
-                            yield f"data: {json.dumps({'type': 'audio', 'data': audio_base64})}\n\n"
+                        # Add to speech buffer
+                        cleaned_sentence = clean_text_for_speech(sentence)
+                        if cleaned_sentence:
+                            speech_buffer += " " + cleaned_sentence
+                        
+                        # Only generate audio if buffer is long enough (e.g. > 50 chars) to reduce requests/choppiness
+                        if len(speech_buffer) > 50:
+                            audio_content = generate_speech(speech_buffer.strip())
+                            if audio_content:
+                                audio_base64 = base64.b64encode(audio_content).decode('utf-8')
+                                yield f"data: {json.dumps({'type': 'audio', 'data': audio_base64})}\n\n"
+                            speech_buffer = ""
             
-            # Process remaining buffer
+            # Process remaining text buffer
             if buffer.strip():
-                 audio_content = generate_speech(buffer)
-                 if audio_content:
+                 cleaned_buffer = clean_text_for_speech(buffer)
+                 if cleaned_buffer:
+                     speech_buffer += " " + cleaned_buffer
+
+            # Process remaining speech buffer
+            if speech_buffer.strip():
+                audio_content = generate_speech(speech_buffer.strip())
+                if audio_content:
                     audio_base64 = base64.b64encode(audio_content).decode('utf-8')
                     yield f"data: {json.dumps({'type': 'audio', 'data': audio_base64})}\n\n"
             

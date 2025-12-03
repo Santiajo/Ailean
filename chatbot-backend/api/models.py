@@ -28,6 +28,7 @@ class ChatSession(models.Model):
     title = models.CharField(max_length=255, default="New Chat")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    metadata = models.JSONField(default=dict, blank=True)
 
     def __str__(self):
         return f"{self.title} ({self.user.username})"
