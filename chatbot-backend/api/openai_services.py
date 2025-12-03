@@ -14,7 +14,7 @@ def transcribe_audio(audio_file):
     try:
         transcript = openai.audio.transcriptions.create(
             model="whisper-1",
-            file=audio_file
+            file=(audio_file.name, audio_file, "audio/webm")
         )
         return transcript.text
     except Exception as e:
@@ -53,7 +53,7 @@ def generate_speech(text):
     try:
         response = openai.audio.speech.create(
             model="tts-1",
-            voice="alloy",
+            voice="nova",
             input=text
         )
         return response.content

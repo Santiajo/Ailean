@@ -1,10 +1,11 @@
 .floatingAvatar {
   position: absolute;
   cursor: grab;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   border-radius: 50%;
-  border: 3px solid rgba(255,255,255,0.8);
+  border: 3px solid rgba(255, 255, 255, 0.8);
   overflow: hidden;
+  z-index: 50;
 }
 
 .avatarBody {
@@ -61,21 +62,22 @@
 
 .expression {
   position: absolute;
-  inset: 0;           
-  object-fit: contain; 
-  z-index: 3;         
+  inset: 0;
+  object-fit: contain;
+  z-index: 3;
   pointer-events: none;
 }
 
 .hat {
   position: absolute;
-  top: -17px;      
+  top: -17px;
   left: 45%;
   transform: translateX(-50%);
-  width: 130%;       
-  height: auto;   
-  z-index: 4;       
+  width: 130%;
+  height: auto;
+  z-index: 4;
 }
+
 .accessory {
   position: absolute;
   top: 0;

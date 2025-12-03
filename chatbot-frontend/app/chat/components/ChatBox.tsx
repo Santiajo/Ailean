@@ -38,7 +38,13 @@ export function ChatBox({ setIsTalking, messages, sendMessage, isLoading, isBotT
         {messages.length === 0 ? (
           <div className={styles.empty}>
             <p className={styles.emptyTitle}>Comienza una conversación</p>
-            <p className={styles.emptySubtitle}>Escribe algo abajo para empezar</p>
+            <p className={styles.emptySubtitle}>Elige una opción para empezar:</p>
+            <div className={styles.starterChips}>
+              <button onClick={() => handleSend("Quiero obtener retroalimentación")}>Obtener Retroalimentación</button>
+              <button onClick={() => handleSend("Quiero aprender ingles basico")}>Inglés Básico (A1)</button>
+              <button onClick={() => handleSend("Quiero aprender ingles elemental")}>Inglés Elemental (A2)</button>
+              <button onClick={() => handleSend("Quiero aprender ingles Intermedio")}>Inglés Intermedio (B1/B2)</button>
+            </div>
           </div>
         ) : (
           messages.map((msg) => <MessageBubble key={msg.id} message={msg} />)
