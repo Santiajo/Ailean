@@ -1,0 +1,152 @@
+.container {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: white;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.icon {
+    background: rgba(59, 130, 246, 0.2);
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    font-size: 1.25rem;
+}
+
+.list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.emptyState {
+    text-align: center;
+    padding: 2.5rem;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 0.75rem;
+    border: 1px dashed rgba(255, 255, 255, 0.1);
+    color: #9ca3af;
+}
+
+.missionCard {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.missionCard:hover {
+    background: rgba(0, 0, 0, 0.4);
+    border-color: rgba(59, 130, 246, 0.3);
+    transform: translateY(-2px);
+}
+
+.cardHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.75rem;
+    position: relative;
+    z-index: 10;
+}
+
+.missionTitle {
+    font-weight: 600;
+    font-size: 1rem;
+    color: white;
+    margin-bottom: 0.25rem;
+    transition: color 0.3s ease;
+}
+
+.missionCard:hover .missionTitle {
+    color: #bfdbfe;
+}
+
+.missionDesc {
+    font-size: 0.875rem;
+    color: #9ca3af;
+}
+
+.badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.badgeCompleted {
+    background: rgba(16, 185, 129, 0.2);
+    color: #4ade80;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.badgeActive {
+    background: rgba(234, 179, 8, 0.1);
+    color: #facc15;
+    border: 1px solid rgba(234, 179, 8, 0.2);
+}
+
+.progressContainer {
+    position: relative;
+    z-index: 10;
+    margin-top: 1rem;
+}
+
+.progressInfo {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #9ca3af;
+    margin-bottom: 0.375rem;
+}
+
+.progressTextCompleted {
+    color: #4ade80;
+}
+
+.progressTextActive {
+    color: #60a5fa;
+}
+
+.progressBarBg {
+    width: 100%;
+    height: 0.625rem;
+    background: rgba(55, 65, 81, 0.5);
+    border-radius: 9999px;
+    overflow: hidden;
+}
+
+.progressBarFill {
+    height: 100%;
+    border-radius: 9999px;
+    transition: width 1s ease-out;
+}
+
+.fillCompleted {
+    background: linear-gradient(to right, #10b981, #34d399);
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+}
+
+.fillActive {
+    background: linear-gradient(to right, #2563eb, #22d3ee);
+}

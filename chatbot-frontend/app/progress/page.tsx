@@ -6,17 +6,23 @@ import Sidebar from "../chat/components/Sidebar";
 import StatsCards from "./components/StatsCards";
 import ProgressCircles from "./components/ProgressCircles";
 import TimeChart from "./components/TimeChart";
+import MissionsList from "./components/MissionsList";
+import AchievementsGrid from "./components/AchievementsGrid";
 import styles from "./styles/progress.module.css";
 
 export default function ProgressPage() {
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [activeTab, setActiveTab] = useState<'missions' | 'achievements'>('missions');
 
   const [statsData, setStatsData] = useState({
     level: 1,
     xp: 0,
     streak: 0,
     total_time_minutes: 0,
+    global_score: 0,
+    missions: [],
+    achievements: []
   });
 
   useEffect(() => {
@@ -60,6 +66,7 @@ export default function ProgressPage() {
 
   // Stats reales
   const stats = [
+    { label: "Score Global", value: `${statsData.global_score}/100`, color: "#10b981" },
     { label: "Racha Actual", value: `${statsData.streak} días`, color: "#f97316" },
     { label: "Tiempo Total", value: `${Math.round(statsData.total_time_minutes)} min`, color: "#3b82f6" },
     { label: "Nivel Actual", value: `Nivel ${statsData.level}`, color: "#fbbf24" },
@@ -97,6 +104,31 @@ export default function ProgressPage() {
         {/* Contenedor de contenido con scroll */}
         <div className={styles.contentWrapper}>
           <StatsCards stats={stats} />
+
+          {/* Tabs Navigation */}
+          <div className={styles.tabsContainer}>
+            <button
+              onClick={() => setActiveTab('missions')}
+              className={`${styles.tabButton} ${activeTab === 'missions' ? styles.activeTabMissions : ''}`}
+            >
+              Misiones Diarias
+            </button>
+            <button
+              onClick={() => setActiveTab('achievements')}
+              className={`${styles.tabButton} ${activeTab === 'achievements' ? styles.activeTabAchievements : ''}`}
+            >
+              Logros y Medallas
+            </button>
+          </div>
+
+          <div className="mb-6">
+            {activeTab === 'missions' ? (
+              <MissionsList missions={statsData.missions} />
+            ) : (
+              <AchievementsGrid achievements={statsData.achievements} />
+            )}
+          </div>
+
           <ProgressCircles items={progressItems} />
           <TimeChart data={dailyData} />
         </div>

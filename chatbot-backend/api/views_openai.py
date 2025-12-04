@@ -70,6 +70,10 @@ class ChatView(APIView):
         # Generator function for StreamingHttpResponse
         is_audio = bool(audio_file)
         
+        def clean_text_for_speech(text):
+            # Remove content in parentheses (e.g., translations)
+            return re.sub(r'\s*\(.*?\)', '', text).strip()
+
         # 2. Get Response from LLM (Streaming)
         system_prompt = "You are an English Tutor AI. Your goal is to help students improve their English skills. Keep your responses CONCISE and SIMPLE (max 2-3 sentences usually). If the user asks for examples, provide 2-3 short, clear examples. Use bullet points for lists. Be helpful and direct. If the user speaks in Spanish, reply in Spanish but encourage English."
         
@@ -183,13 +187,14 @@ class ChatView(APIView):
 
         stream = get_chat_response(messages, stream=True)
         
+        # Check if stream is actually a generator (success) or a string (error)
+        if isinstance(stream, str) or not hasattr(stream, '__iter__'):
+             # Handle error case where get_chat_response returned a string or non-iterable
+             return Response({"error": "Failed to get response from AI service. Check API Key."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
         full_response_text = ""
         buffer = ""
         speech_buffer = "" # Accumulate sentences for smoother speech
-
-        def clean_text_for_speech(text):
-            # Remove content in parentheses (e.g., translations)
-            return re.sub(r'\s*\(.*?\)', '', text).strip()
 
         def event_stream():
             nonlocal full_response_text, buffer, speech_buffer
@@ -200,31 +205,35 @@ class ChatView(APIView):
             if is_audio:
                 yield f"data: {json.dumps({'type': 'transcription', 'text': user_message})}\n\n"
 
-            for chunk in stream:
-                if chunk.choices[0].delta.content:
-                    content = chunk.choices[0].delta.content
-                    full_response_text += content
-                    buffer += content
-                    yield f"data: {json.dumps({'type': 'text_chunk', 'content': content})}\n\n"
-                    
-                    # Check for sentence completion
-                    match = re.search(r'[.!?]\s', buffer)
-                    if match:
-                        sentence = buffer[:match.end()]
-                        buffer = buffer[match.end():]
+            try:
+                for chunk in stream:
+                    if chunk.choices[0].delta.content:
+                        content = chunk.choices[0].delta.content
+                        full_response_text += content
+                        buffer += content
+                        yield f"data: {json.dumps({'type': 'text_chunk', 'content': content})}\n\n"
                         
-                        # Add to speech buffer
-                        cleaned_sentence = clean_text_for_speech(sentence)
-                        if cleaned_sentence:
-                            speech_buffer += " " + cleaned_sentence
-                        
-                        # Only generate audio if buffer is long enough (e.g. > 50 chars) to reduce requests/choppiness
-                        if len(speech_buffer) > 50:
-                            audio_content = generate_speech(speech_buffer.strip())
-                            if audio_content:
-                                audio_base64 = base64.b64encode(audio_content).decode('utf-8')
-                                yield f"data: {json.dumps({'type': 'audio', 'data': audio_base64})}\n\n"
-                            speech_buffer = ""
+                        # Check for sentence completion
+                        match = re.search(r'[.!?]\s', buffer)
+                        if match:
+                            sentence = buffer[:match.end()]
+                            buffer = buffer[match.end():]
+                            
+                            # Add to speech buffer
+                            cleaned_sentence = clean_text_for_speech(sentence)
+                            if cleaned_sentence:
+                                speech_buffer += " " + cleaned_sentence
+                            
+                            # Only generate audio if buffer is long enough (e.g. > 50 chars) to reduce requests/choppiness
+                            if len(speech_buffer) > 50:
+                                audio_content = generate_speech(speech_buffer.strip())
+                                if audio_content:
+                                    audio_base64 = base64.b64encode(audio_content).decode('utf-8')
+                                    yield f"data: {json.dumps({'type': 'audio', 'data': audio_base64})}\n\n"
+                                speech_buffer = ""
+            except Exception as e:
+                print(f"Stream error: {e}")
+                yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
             
             # Process remaining text buffer
             if buffer.strip():
