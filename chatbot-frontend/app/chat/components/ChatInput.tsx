@@ -1,3 +1,4 @@
+"app/chat/components/ChatInput.tsx"
 "use client";
 import { useState, useRef } from "react";
 import { Send, Mic, Square } from "lucide-react";

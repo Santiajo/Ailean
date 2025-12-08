@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework import status
 from .openai_services import transcribe_audio, get_chat_response, generate_speech
+from .azure_services import pronunciation_assessment, format_pronunciation_feedback
 from .models import UserProfile, ChatSession, ChatMessage
 from django.utils import timezone
 import datetime
@@ -17,6 +18,7 @@ class ChatView(APIView):
     def post(self, request, *args, **kwargs):
         user_message = ""
         audio_file = request.FILES.get('audio')
+        pronunciation_data = None
         
         # 1. Handle Input (Text or Audio)
         if audio_file:
@@ -25,6 +27,18 @@ class ChatView(APIView):
             if not transcription:
                 return Response({"error": "Failed to transcribe audio"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             user_message = transcription
+            
+            # --- PRONUNCIATION ASSESSMENT ---
+            # Always assess pronunciation when audio is provided
+            print(f"Performing pronunciation assessment on: '{user_message}'")
+            pronunciation_data = pronunciation_assessment(audio_file, user_message)
+            
+            if pronunciation_data:
+                print(f"✓ Pronunciation assessment completed")
+            else:
+                print("⚠ Pronunciation assessment not available (Azure not configured or failed)")
+            # --------------------------------
+            
         else:
             # Try to get text from form data or json
             user_message = request.data.get('message')
@@ -75,33 +89,46 @@ class ChatView(APIView):
             return re.sub(r'\s*\(.*?\)', '', text).strip()
 
         # 2. Get Response from LLM (Streaming)
-        system_prompt = "You are an English Tutor AI. Your goal is to help students improve their English skills. Keep your responses CONCISE and SIMPLE (max 2-3 sentences usually). If the user asks for examples, provide 2-3 short, clear examples. Use bullet points for lists. Be helpful and direct. If the user speaks in Spanish, reply in Spanish but encourage English."
-        
-        # --- Persistence: Get or Create Session ---
-        session_id = request.data.get('sessionId')
-        chat_session = None
+        # --- UPDATED SYSTEM PROMPT FOR CONCISE RESPONSES WITH INTEGRATED FEEDBACK ---
+        base_system_prompt = """You are an English Tutor AI. Your goal is to help students improve their English skills.
+
+CRITICAL: Keep responses VERY CONCISE (2-4 sentences maximum). Be direct and helpful.
+
+Guidelines:
+- Answer briefly and naturally
+- If user asks for examples, give 2-3 SHORT examples
+- Use bullet points only when specifically requested
+- Be encouraging but concise
+- If user speaks Spanish, reply in Spanish but encourage English practice
+
+PRONUNCIATION FEEDBACK (when available):
+- Integrate pronunciation tips NATURALLY into your response
+- Be specific about which sounds need work
+- Keep pronunciation feedback to 1-2 sentences
+- Example: "Great! By the way, try pronouncing 'think' with your tongue between your teeth: 'thhhink', not 'tink'."
+"""
         
         # Starter Prompts & Responses
         starter_responses = {
             "Quiero obtener retroalimentación": {
-                "response": "¡Hola!\n¡Qué bueno tenerte por aquí! Antes de darte retroalimentación, necesito un poquito más de información para ayudarte de forma precisa y útil.\n\n¿Sobre qué necesitas retroalimentación?\nPuede ser:\n\nUn writing (puedes subir una foto si es manuscrito, recuerda que sea legible).\n\nListening.\n\nReading.\n\nSpeaking (puedes describirme lo que dijiste).\n\nGramática o vocabulario.\n\nAlguna actividad de tu curso (Starter, Elementary, etc.).\n\nAdemás, cuéntame:\n\n¿Qué nivel/“File” estás estudiando ahora?\n\n¿Cuál es tu objetivo para esta sesión de 30 minutos?\n\n¿Te falta ponerte al día con alguna unidad o clase?\n\n¡Ganbatte! (頑張って)",
+                "response": "¡Hola!\n¡Qué bueno tenerte por aquí! Antes de darte retroalimentación, necesito un poquito más de información para ayudarte de forma precisa y útil.\n\n¿Sobre qué necesitas retroalimentación?\nPuede ser:\n\nUn writing (puedes subir una foto si es manuscrito, recuerda que sea legible).\n\nListening.\n\nReading.\n\nSpeaking (puedes describirme lo que dijiste).\n\nGramática o vocabulario.\n\nAlguna actividad de tu curso (Starter, Elementary, etc.).\n\nAdemás, cuéntame:\n\n¿Qué nivel/\"File\" estás estudiando ahora?\n\n¿Cuál es tu objetivo para esta sesión de 30 minutos?\n\n¿Te falta ponerte al día con alguna unidad o clase?\n\n¡Ganbatte! (頑張って)",
                 "mode": "feedback",
-                "system_prompt": "You are an English Tutor AI helping with feedback. Focus on correcting mistakes and explaining grammar/vocabulary. Be encouraging."
+                "system_prompt": "You are an English Tutor AI helping with feedback. Focus on correcting mistakes and explaining grammar/vocabulary. Keep responses concise (3-5 sentences). Be encouraging but direct."
             },
             "Quiero aprender ingles basico": {
                 "response": "¡Hola!\n¡Qué alegría tenerte por aquí! ¿Cómo te sientes hoy?\n\nAntes de empezar, quiero organizar tu ruta de estudio para que aproveches esta sesión de 30 minutos al máximo.\n\nPara personalizar tu aprendizaje, necesito saber:\n\n¿Cuál es tu nivel actual?\n\nBásico 1 (Starter A)\n\nBásico 2 (Starter B)\n\nElementary\n(Si no sabes, ¡yo te ayudo!)\n\n¿Estás estudiando algún File específico?\nEj.: Starter File 1, File 2… (de American English File).\n\n¿Tienes alguna dificultad en particular?\n(vocabulario, gramática, listening, speaking…)\n\n¿Cuál es tu objetivo para esta sesión?\nEj.: aprender present simple, saludar en inglés, practicar conversación, etc.\n\nY también: ¿te estás poniendo al día con alguna unidad que te perdiste en clase?\n\n¡Ganbatte! がんばって",
                 "mode": "basic",
-                "system_prompt": "You are an English Tutor AI for Basic level students (A1). Use simple English, be very patient. Focus on basic vocabulary and grammar."
+                "system_prompt": "You are an English Tutor AI for Basic level students (A1). Use simple English, be very patient. Keep responses SHORT (2-4 sentences). Focus on basic vocabulary and grammar."
             },
             "Quiero aprender ingles elemental": {
                 "response": "¡Hola!\n¡Bienvenido/a a Chill English Bot 2.0!\nMe alegra muchísimo verte con ganas de aprender inglés en nivel Elementary.\nAntes de empezar, cuéntame:\n\n¿Cómo te sientes hoy?\n\n(¡Tu estado emocional es importante para aprender bien!)\n\n¿Cuál es tu objetivo para esta sesión de 30 minutos?\n\nPor ejemplo:\n\nGramática (present simple, past simple, countable/uncountable…)\n\nVocabulario (comida, rutinas, lugares, trabajo…)\n\nSpeaking\n\nListening\n\nRepaso general\n\nY una pregunta clave:\n\n¿En qué File vas actualmente? (Del curso Elementary: Files 1, 2 o 3).\n¿O quieres empezar desde el File 1?\n\nSi te has atrasado alguna clase, también dime para ayudarte a ponerte al día. (がんばって!)",
                 "mode": "elementary",
-                "system_prompt": "You are an English Tutor AI for Elementary level students (A2). Encourage full sentences but keep explanations simple."
+                "system_prompt": "You are an English Tutor AI for Elementary level students (A2). Encourage full sentences but keep explanations simple and SHORT (3-5 sentences max)."
             },
             "Quiero aprender ingles Intermedio": {
                 "response": "¡Hello, hello!\n¡Bienvenido/a a tu sesión con Chill English Bot 2.0!\n\nAntes de comenzar, cuéntame:\n\n1) ¿Cómo te sientes hoy?\n\n(Así ajustamos el ritmo de la clase)\n\n2) Objetivo de la sesión\n\n¿Qué quieres lograr en esta media hora?\n\n¿Refuerzo de gramática?\n\n¿Vocabulario específico?\n\n¿Speaking?\n\n¿Prepararte para una unidad del curso?\n\n3) Diagnóstico\n\nDices que quieres Inglés Intermedio.\nPara guiarte bien según la hoja de ruta, necesito saber:\n\n¿En qué File o unidad estás actualmente del nivel Intermediate?\n(File 7, 8, 9, 10, 11 o 12 — según el curso Regular/Intensivo)\n\n4) ¿Debes ponerte al día en alguna clase que faltaste?\n\n¡Listo para empezar cuando me digas! Ganbatte!",
                 "mode": "intermediate",
-                "system_prompt": "You are an English Tutor AI for Intermediate level students (B1/B2). You can use more complex grammar and vocabulary. Challenge the student slightly."
+                "system_prompt": "You are an English Tutor AI for Intermediate level students (B1/B2). You can use more complex grammar and vocabulary. Challenge the student slightly. Keep responses CONCISE (3-5 sentences)."
             }
         }
 
@@ -109,10 +136,13 @@ class ChatView(APIView):
         starter_data = starter_responses.get(user_message.strip())
 
         if request.user.is_authenticated:
-            if session_id and session_id != 'new' and session_id != 'null':
-                try:
-                    chat_session = ChatSession.objects.get(id=session_id, user=request.user)
-                except ChatSession.DoesNotExist:
+            if session_id := request.data.get('sessionId'):
+                if session_id != 'new' and session_id != 'null':
+                    try:
+                        chat_session = ChatSession.objects.get(id=session_id, user=request.user)
+                    except ChatSession.DoesNotExist:
+                        chat_session = ChatSession.objects.create(user=request.user, title=user_message[:30] + "...")
+                else:
                     chat_session = ChatSession.objects.create(user=request.user, title=user_message[:30] + "...")
             else:
                 chat_session = ChatSession.objects.create(user=request.user, title=user_message[:30] + "...")
@@ -129,7 +159,7 @@ class ChatView(APIView):
             db_messages = chat_session.messages.order_by('created_at')
             
             # Determine System Prompt
-            current_system_prompt = system_prompt # Default
+            current_system_prompt = base_system_prompt # Default
             if chat_session.metadata.get('mode'):
                 # Find the system prompt for the mode
                 for key, val in starter_responses.items():
@@ -137,12 +167,25 @@ class ChatView(APIView):
                         current_system_prompt = val['system_prompt']
                         break
             
+            # --- ADD PRONUNCIATION CONTEXT TO SYSTEM PROMPT ---
+            if pronunciation_data:
+                pronunciation_context = format_pronunciation_feedback(pronunciation_data)
+                current_system_prompt += f"\n\n--- PRONUNCIATION ASSESSMENT DATA ---\n{pronunciation_context}\n\nIntegrate relevant pronunciation tips naturally into your response (1-2 sentences max)."
+            # --------------------------------------------------
+            
             messages = [{"role": "system", "content": current_system_prompt}]
             for msg in db_messages:
                 messages.append({"role": msg.role, "content": msg.content})
         else:
             # Fallback for unauthenticated
-            messages = [{"role": "system", "content": system_prompt}]
+            current_system_prompt = base_system_prompt
+            
+            # Add pronunciation context for unauthenticated users too
+            if pronunciation_data:
+                pronunciation_context = format_pronunciation_feedback(pronunciation_data)
+                current_system_prompt += f"\n\n--- PRONUNCIATION ASSESSMENT DATA ---\n{pronunciation_context}\n\nIntegrate relevant pronunciation tips naturally into your response (1-2 sentences max)."
+            
+            messages = [{"role": "system", "content": current_system_prompt}]
             history_str = request.data.get('history')
             if history_str:
                 try:
@@ -177,6 +220,8 @@ class ChatView(APIView):
                     if audio_content:
                         audio_base64 = base64.b64encode(audio_content).decode('utf-8')
                         yield f"data: {json.dumps({'type': 'audio', 'data': audio_base64})}\n\n"
+                    else:
+                        yield f"data: {json.dumps({'type': 'error', 'content': 'Audio generation not available'})}\n\n"
 
                 if chat_session:
                     ChatMessage.objects.create(session=chat_session, role='assistant', content=response_text)
@@ -198,12 +243,32 @@ class ChatView(APIView):
 
         def event_stream():
             nonlocal full_response_text, buffer, speech_buffer
+            
             # Send session ID to frontend so it can update URL/state
             if chat_session:
                  yield f"data: {json.dumps({'type': 'session_id', 'id': chat_session.id})}\n\n"
 
             if is_audio:
                 yield f"data: {json.dumps({'type': 'transcription', 'text': user_message})}\n\n"
+            
+            # --- SEND PRONUNCIATION DATA TO FRONTEND ---
+            if pronunciation_data:
+                pronunciation_payload = {
+                    'type': 'pronunciation_data',
+                    'accuracy': pronunciation_data['accuracy_score'],
+                    'fluency': pronunciation_data['fluency_score'],
+                    'pronunciation_score': pronunciation_data['pronunciation_score'],
+                    'completeness': pronunciation_data['completeness_score'],
+                    'mispronounced_words': [
+                        {
+                            'word': w['word'],
+                            'accuracy': w['accuracy'],
+                            'error_type': w['error_type']
+                        } for w in pronunciation_data['mispronounced_words']
+                    ]
+                }
+                yield f"data: {json.dumps(pronunciation_payload)}\n\n"
+            # --------------------------------------------
 
             try:
                 for chunk in stream:
@@ -230,6 +295,9 @@ class ChatView(APIView):
                                 if audio_content:
                                     audio_base64 = base64.b64encode(audio_content).decode('utf-8')
                                     yield f"data: {json.dumps({'type': 'audio', 'data': audio_base64})}\n\n"
+                                else:
+                                    print("⚠ Audio generation failed")
+                                    yield f"data: {json.dumps({'type': 'error', 'content': 'Audio generation not available'})}\n\n"
                                 speech_buffer = ""
             except Exception as e:
                 print(f"Stream error: {e}")
@@ -247,6 +315,9 @@ class ChatView(APIView):
                 if audio_content:
                     audio_base64 = base64.b64encode(audio_content).decode('utf-8')
                     yield f"data: {json.dumps({'type': 'audio', 'data': audio_base64})}\n\n"
+                else:
+                    print("⚠ Final audio generation failed")
+                    yield f"data: {json.dumps({'type': 'error', 'content': 'Audio generation not available'})}\n\n"
             
             # --- Persistence: Save Assistant Message ---
             if chat_session and full_response_text:

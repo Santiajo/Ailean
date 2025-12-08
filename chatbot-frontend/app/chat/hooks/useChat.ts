@@ -1,6 +1,5 @@
 "use client";
 import { useState, useEffect } from "react";
-import { v4 as uuid } from "uuid";
 
 export type Message = {
   id: string | number;
@@ -10,6 +9,18 @@ export type Message = {
   isAudio?: boolean;
 };
 
+export type PronunciationData = {
+  accuracy: number;
+  fluency: number;
+  pronunciation_score: number;
+  completeness: number;
+  mispronounced_words: Array<{
+    word: string;
+    accuracy: number;
+    error_type: string;
+  }>;
+};
+
 export function useChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isBotTyping, setIsBotTyping] = useState(false);
@@ -17,6 +28,9 @@ export function useChat() {
   const [audioQueue, setAudioQueue] = useState<string[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [sessionId, setSessionId] = useState<number | null>(null);
+  
+  // New state for pronunciation assessment
+  const [pronunciationData, setPronunciationData] = useState<PronunciationData | null>(null);
 
   // Audio Queue Effect
   useEffect(() => {
@@ -46,6 +60,7 @@ export function useChat() {
   const loadSession = async (id: number) => {
     setSessionId(id);
     setMessages([]); // Clear current messages
+    setPronunciationData(null); // Clear pronunciation data
     try {
       const token = localStorage.getItem("accessToken");
       const res = await fetch(`http://localhost:8000/api/sessions/${id}/messages/`, {
@@ -54,7 +69,7 @@ export function useChat() {
       if (res.ok) {
         const data = await res.json();
         // Map backend messages to frontend format
-        const mappedMessages = data.map((msg: any) => ({
+        const mappedMessages = data.map((msg: { id: number; role: string; content: string }) => ({
           id: msg.id,
           role: msg.role,
           content: msg.content,
@@ -73,10 +88,16 @@ export function useChat() {
     setMessages([]);
     setAudioQueue([]);
     setIsPlaying(false);
+    setPronunciationData(null);
   };
 
   const sendMessage = async (content: string | Blob, isAudio: boolean = false) => {
     if (!content) return;
+
+    // Clear previous pronunciation data when sending new message
+    if (isAudio) {
+      setPronunciationData(null);
+    }
 
     // 1. Optimistic Update
     const tempId = Date.now();
@@ -166,6 +187,29 @@ export function useChat() {
                     m.id === tempId ? { ...m, content: data.text, isAudio: false } : m
                   )
                 );
+              } else if (data.type === "pronunciation_data") {
+                // NEW: Handle pronunciation assessment data
+                const pronunciationInfo: PronunciationData = {
+                  accuracy: data.accuracy,
+                  fluency: data.fluency,
+                  pronunciation_score: data.pronunciation_score,
+                  completeness: data.completeness,
+                  mispronounced_words: data.mispronounced_words || []
+                };
+                
+                setPronunciationData(pronunciationInfo);
+                
+                // Log to console for debugging
+                console.log("Pronunciation Assessment:", pronunciationInfo);
+                
+                // Optional: Show toast notification with score
+                if (pronunciationInfo.pronunciation_score >= 80) {
+                  console.log(`🎯 Excellent pronunciation! ${pronunciationInfo.pronunciation_score}/100`);
+                } else if (pronunciationInfo.pronunciation_score >= 60) {
+                  console.log(`👍 Good job! ${pronunciationInfo.pronunciation_score}/100`);
+                } else {
+                  console.log(`💪 Keep practicing! ${pronunciationInfo.pronunciation_score}/100`);
+                }
               } else if (data.type === "text_chunk") {
                 botContent += data.content;
 
@@ -183,6 +227,9 @@ export function useChat() {
               } else if (data.type === "audio") {
                 // Queue audio for playback
                 playAudio(data.data);
+              } else if (data.type === "error") {
+                // NEW: Handle error events (e.g., "Audio generation not available")
+                console.warn("Backend error:", data.content);
               }
             } catch (e) {
               console.error("Error parsing SSE JSON:", e);
@@ -201,5 +248,14 @@ export function useChat() {
     }
   };
 
-  return { messages, sendMessage, isLoading, isPlaying, sessionId, loadSession, createNewChat };
+  return { 
+    messages, 
+    sendMessage, 
+    isLoading, 
+    isPlaying, 
+    sessionId, 
+    loadSession, 
+    createNewChat,
+    pronunciationData // Export pronunciation data for use in components
+  };
 }
