@@ -1,3 +1,4 @@
+"app/chat/components/ChatBox.tsx"
 "use client";
 
 import { ChatInput } from "./ChatInput";

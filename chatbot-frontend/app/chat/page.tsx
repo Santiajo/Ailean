@@ -1,3 +1,4 @@
+"app/chat/page.tsx"
 "use client";
 import Sidebar from "./components/Sidebar";
 import { ChatBox } from "./components/ChatBox";
