@@ -21,6 +21,8 @@ export default function ProgressPage() {
     streak: 0,
     total_time_minutes: 0,
     global_score: 0,
+    fluency_score: 0,
+    vocabulary_score: 0,
     missions: [],
     achievements: []
   });
@@ -77,9 +79,8 @@ export default function ProgressPage() {
 
   const progressItems = [
     { label: "XP Progress\n(Next Level)", value: xpPercentage, color: "#22d3ee", gradient: "linear-gradient(135deg, #22d3ee, #3b82f6)" },
-    // Placeholders for other metrics until we track them (Set to 0)
-    { label: "Oral\nFluency", value: 0, color: "#4ade80", gradient: "linear-gradient(135deg, #4ade80, #10b981)" },
-    { label: "Vocabulary\nMastery", value: 0, color: "#a78bfa", gradient: "linear-gradient(135deg, #a78bfa, #8b5cf6)" },
+    { label: "Oral\nFluency", value: statsData.fluency_score, color: "#4ade80", gradient: "linear-gradient(135deg, #4ade80, #10b981)" },
+    { label: "Vocabulary\nMastery", value: statsData.vocabulary_score, color: "#a78bfa", gradient: "linear-gradient(135deg, #a78bfa, #8b5cf6)" },
   ];
 
   return (

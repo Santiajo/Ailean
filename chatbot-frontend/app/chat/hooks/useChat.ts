@@ -204,7 +204,7 @@ export function useChat() {
     const userMsg: Message = {
       id: tempId,
       role: "user",
-      content: isAudio ? "🎤 Audio message..." : (content as string),
+      content: isAudio ? "Audio message..." : (content as string),
       isAudio,
     };
     setMessages((prev) => [...prev, userMsg]);

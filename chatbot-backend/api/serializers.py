@@ -45,7 +45,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = UserProfile
-        fields = ('username', 'level', 'xp', 'streak', 'total_time_minutes', 'global_score', 'missions', 'achievements')
+        fields = ('username', 'level', 'xp', 'streak', 'total_time_minutes', 'global_score', 'fluency_score', 'vocabulary_score', 'missions', 'achievements')
 
 class ChatMessageSerializer(serializers.ModelSerializer):
     class Meta:

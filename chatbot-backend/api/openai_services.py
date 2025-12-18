@@ -14,9 +14,11 @@ def transcribe_audio(audio_file):
     try:
         transcript = openai.audio.transcriptions.create(
             model="whisper-1",
-            file=(audio_file.name, audio_file, "audio/webm")
+            file=(audio_file.name, audio_file, "audio/webm"),
+            temperature=0,
+            response_format="verbose_json"
         )
-        return transcript.text
+        return transcript.text, transcript.language
     except Exception as e:
         print(f"Error transcribing audio: {e}")
         return None

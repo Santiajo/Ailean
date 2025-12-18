@@ -10,6 +10,8 @@ class UserProfile(models.Model):
     streak = models.IntegerField(default=0)
     total_time_minutes = models.FloatField(default=0.0)
     global_score = models.IntegerField(default=0, help_text="Calculated score 0-100")
+    fluency_score = models.IntegerField(default=0, help_text="Oral Fluency Score 0-100")
+    vocabulary_score = models.IntegerField(default=0, help_text="Vocabulary Mastery Score 0-100")
     last_activity = models.DateTimeField(auto_now=True)
 
     def __str__(self):

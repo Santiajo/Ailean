@@ -23,15 +23,22 @@ class ChatView(APIView):
         # 1. Handle Input (Text or Audio)
         if audio_file:
             # Transcribe audio
-            transcription = transcribe_audio(audio_file)
-            if not transcription:
+            # Transcribe audio
+            transcription_result = transcribe_audio(audio_file)
+            if not transcription_result:
                 return Response({"error": "Failed to transcribe audio"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            user_message = transcription
+            
+            user_message, detected_lang = transcription_result
             
             # --- PRONUNCIATION ASSESSMENT ---
-            # Always assess pronunciation when audio is provided
-            print(f"Performing pronunciation assessment on: '{user_message}'")
-            pronunciation_data = pronunciation_assessment(audio_file, user_message)
+            # Assess pronunciation ONLY if language is English (skip for Spanish)
+            is_spanish = str(detected_lang).lower() in ['es', 'spanish', 'español']
+            
+            if not is_spanish:
+                print(f"Performing pronunciation assessment on: '{user_message}' (Lang: {detected_lang})")
+                pronunciation_data = pronunciation_assessment(audio_file, user_message, language=detected_lang)
+            else:
+                print(f"Skipping pronunciation assessment for Spanish input (Lang: {detected_lang})")
             
             if pronunciation_data:
                 print(f"✓ Pronunciation assessment completed")
@@ -75,6 +82,22 @@ class ChatView(APIView):
                 if new_level > profile.level:
                     profile.level = new_level
                     # TODO: Notify frontend of level up via SSE if possible
+                
+                # Update Fluency Score if available from assessment
+                if pronunciation_data:
+                    current_session_score = float(pronunciation_data.get('fluency_score', 0))
+                    
+                    if profile.fluency_score == 0:
+                        # First time: Set directly
+                        profile.fluency_score = int(current_session_score)
+                    else:
+                        # Moving Average: 70% History, 30% New
+                        # This prevents drastic jumps (e.g. from 100 to 26 in one go) and smooths progress
+                        new_score = (float(profile.fluency_score) * 0.7) + (current_session_score * 0.3)
+                        profile.fluency_score = int(new_score)
+                        
+                    # Optional: Use pronunciation/accuracy for other metrics if needed
+                    # profile.vocabulary_score = int(pronunciation_data.get('accuracy_score', 0)) 
                 
                 profile.save()
             except Exception as e:
@@ -199,7 +222,7 @@ PRONUNCIATION FEEDBACK (when available):
             messages.append({"role": "user", "content": user_message})
         # ------------------------------------------
 
-        # Special handling for Starter Prompts: Return static response immediately (simulated stream)
+        # Special handling for Starter Prompts: Stream sentence-by-sentence for speed
         if starter_data:
             def starter_stream():
                 if chat_session:
@@ -207,19 +230,38 @@ PRONUNCIATION FEEDBACK (when available):
                 
                 response_text = starter_data['response']
                 
-                # Generate audio for the FULL cleaned response
-                cleaned_full_text = clean_text_for_speech(response_text)
-                audio_base64 = None
+                # Split text into sentences/segments to stream audio progressively
+                # Split by punctuation (. ! ?) followed by whitespace, keeping the delimiter
+                raw_segments = re.split(r'([.!?\n]+(?:\s+|$))', response_text)
                 
-                if cleaned_full_text:
-                    audio_content = generate_speech(cleaned_full_text)
-                    if audio_content:
-                        audio_base64 = base64.b64encode(audio_content).decode('utf-8')
-                    else:
-                        yield f"data: {json.dumps({'type': 'error', 'content': 'Audio generation not available'})}\n\n"
+                chunks = []
+                current_chunk = ""
                 
-                # Send single synchronized segment
-                yield f"data: {json.dumps({'type': 'response_segment', 'text': response_text, 'audio': audio_base64})}\n\n"
+                # Reassemble chunks (text + delimiter)
+                # raw_segments result: ["Hola", "!\n", "Como estas", "?", ""]
+                for i in range(0, len(raw_segments) - 1, 2):
+                    chunks.append(raw_segments[i] + raw_segments[i+1])
+                if len(raw_segments) % 2 != 0:
+                    chunks.append(raw_segments[-1])
+                    
+                # Filter empty chunks
+                chunks = [c for c in chunks if c.strip()]
+                
+                for i, chunk in enumerate(chunks):
+                    # Generate audio for the chunk
+                    cleaned_chunk = clean_text_for_speech(chunk)
+                    audio_base64 = None
+                    
+                    if cleaned_chunk:
+                        audio_content = generate_speech(cleaned_chunk)
+                        if audio_content:
+                            audio_base64 = base64.b64encode(audio_content).decode('utf-8')
+                        else:
+                             # Don't error out, just send text
+                             pass
+                    
+                    # Send synchronized segment
+                    yield f"data: {json.dumps({'type': 'response_segment', 'text': chunk, 'audio': audio_base64})}\n\n"
 
                 if chat_session:
                     ChatMessage.objects.create(session=chat_session, role='assistant', content=response_text)

@@ -31,10 +31,11 @@ def convert_webm_to_wav(audio_file):
         return audio_file
 
 
-def pronunciation_assessment(audio_file, reference_text):
+def pronunciation_assessment(audio_file, reference_text, language='en'):
     """
     Usa Azure Speech SDK para pronunciation assessment.
     Retorna scores y palabras mal pronunciadas.
+    language: 'en' or 'es' (Whisper language code)
     """
     
     if not AZURE_SPEECH_KEY or not AZURE_SPEECH_REGION:
@@ -67,11 +68,20 @@ def pronunciation_assessment(audio_file, reference_text):
             enable_miscue=True
         )
         
+        # Map Whisper language to Azure locale
+        # Whisper (verbose_json) returns full language name like "spanish" or "english"
+        azure_locale = "en-US"
+        lang_lower = str(language).lower()
+        
+        if lang_lower in ['es', 'spanish', 'español']:
+            azure_locale = "es-ES"
+            
+        print(f"Azure Speech Language: {azure_locale} (detected: {language})")
+        
         # Crear recognizer
-        language = "en-US"
         recognizer = speechsdk.SpeechRecognizer(
             speech_config=speech_config, 
-            language=language,
+            language=azure_locale,
             audio_config=audio_config
         )
         
