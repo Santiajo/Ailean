@@ -25,36 +25,135 @@ export function useChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isBotTyping, setIsBotTyping] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [audioQueue, setAudioQueue] = useState<string[]>([]);
-  const [isPlaying, setIsPlaying] = useState(false);
+
+  // Audio & Sync State
+  // Queue stores segments: { text: string (to display), audio: string (base64) | null }
+  const [segmentQueue, setSegmentQueue] = useState<Array<{ text: string, audio: string | null }>>([]);
+  const [isProcessingQueue, setIsProcessingQueue] = useState(false);
+  const [currentAnalyser, setCurrentAnalyser] = useState<AnalyserNode | null>(null);
+
   const [sessionId, setSessionId] = useState<number | null>(null);
-  
+
   // New state for pronunciation assessment
   const [pronunciationData, setPronunciationData] = useState<PronunciationData | null>(null);
 
-  // Audio Queue Effect
+  // Process the segment queue
   useEffect(() => {
-    if (!isPlaying && audioQueue.length > 0) {
-      const nextAudio = audioQueue[0];
-      setIsPlaying(true);
+    const processQueue = async () => {
+      if (isProcessingQueue || segmentQueue.length === 0) return;
 
-      const audio = new Audio(`data:audio/mp3;base64,${nextAudio}`);
+      setIsProcessingQueue(true);
+      const segment = segmentQueue[0];
 
-      const handleEnd = () => {
-        setAudioQueue((prev) => prev.slice(1)); // Remove played item
-        setIsPlaying(false); // Allow next item to play
+      // Determine bot message ID (last message should be from assistant)
+      // If the last message is NOT from assistant, we need to add one? 
+      // Actually, we add the placeholder when request starts.
+
+      const playAudio = (base64: string): Promise<void> => {
+        return new Promise((resolve) => {
+          const audio = new Audio(`data:audio/mp3;base64,${base64}`);
+
+          // Audio Context for Lip Sync
+          const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+          if (AudioContext) {
+            const audioCtx = new AudioContext();
+            const source = audioCtx.createMediaElementSource(audio);
+            const analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 256;
+            source.connect(analyser);
+            analyser.connect(audioCtx.destination);
+            setCurrentAnalyser(analyser);
+
+            // Resume context if suspended (browser policy)
+            if (audioCtx.state === 'suspended') {
+              audioCtx.resume();
+            }
+          }
+
+          audio.onended = () => {
+            setCurrentAnalyser(null);
+            resolve();
+          };
+          audio.onerror = () => {
+            console.error("Audio playback error");
+            setCurrentAnalyser(null);
+            resolve();
+          };
+          audio.play().catch(e => {
+            console.error("Play failed", e);
+            resolve();
+          });
+        });
       };
 
-      audio.onended = handleEnd;
-      audio.play().catch((e) => {
-        console.error("Error playing audio:", e);
-        handleEnd(); // Skip on error
-      });
-    }
-  }, [audioQueue, isPlaying]);
+      const typeText = async (text: string, durationEstimateMs: number) => {
+        if (!text) return;
 
-  const playAudio = (base64Audio: string) => {
-    setAudioQueue((prev) => [...prev, base64Audio]);
+        // Split text into chunks for "typing" effect
+        // We want to distribute typing over the duration. 
+        // If duration is unknown (no audio), use default speed.
+        const chars = text.split("");
+        const totalChars = chars.length;
+
+        // Default speed: 30ms per char
+        const delay = durationEstimateMs > 0
+          ? Math.min(Math.max(durationEstimateMs / totalChars, 10), 100)
+          : 30;
+
+        for (const char of chars) {
+          setMessages((prev) => {
+            const newMsgs = [...prev];
+            const lastMsg = newMsgs[newMsgs.length - 1];
+            if (lastMsg && lastMsg.role === "assistant") {
+              // Append to existing
+              return [
+                ...newMsgs.slice(0, -1),
+                { ...lastMsg, content: lastMsg.content + char }
+              ];
+            } else {
+              // Create new if strictly necessary (shouldn't be if we initialized correctly)
+              // But we rely on initialize logic below.
+              // For safety, assume last message is the one we are editing.
+              return newMsgs;
+            }
+          });
+          await new Promise(r => setTimeout(r, delay));
+        }
+      };
+
+      // Execute Sync
+      if (segment.audio) {
+        // Start audio and typing together
+        // We don't know exact duration beforehand easily without pre-loading metadata.
+        // But we can guess: average speaking rate is ~15 chars/sec?
+        // Or just let them run independently but start together.
+
+        // Actually, we can get duration if we wait for metadata.
+        // But that delays playback.
+        // Let's just type at a "natural" reading speed (e.g. 30-50ms/char) 
+        // while audio plays.
+
+        const audioPromise = playAudio(segment.audio);
+        const typingPromise = typeText(segment.text, 0); // 0 = use default speed
+
+        await Promise.all([audioPromise, typingPromise]);
+      } else {
+        // Text only
+        await typeText(segment.text, 0);
+      }
+
+      setSegmentQueue((prev) => prev.slice(1));
+      setIsProcessingQueue(false);
+    };
+
+    processQueue();
+  }, [segmentQueue, isProcessingQueue]);
+
+  const stopAudio = () => {
+    // Helper to clear state if needed
+    setSegmentQueue([]);
+    setIsProcessingQueue(false);
+    window.speechSynthesis.cancel(); // Safety
   };
 
   const loadSession = async (id: number) => {
@@ -86,8 +185,9 @@ export function useChat() {
     console.log("createNewChat called");
     setSessionId(null);
     setMessages([]);
-    setAudioQueue([]);
-    setIsPlaying(false);
+    setSegmentQueue([]);
+    setIsProcessingQueue(false);
+    setCurrentAnalyser(null);
     setPronunciationData(null);
   };
 
@@ -154,13 +254,19 @@ export function useChat() {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let botMsgId = Date.now() + 1;
-      let botContent = "";
-      let isFirstChunk = true;
+
+      // Initialize assistant message (empty content initially)
+      setMessages((prev) => [...prev, { id: botMsgId, role: "assistant", content: "" }]);
+
       let buffer = ""; // Buffer for handling split JSON chunks
 
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+
+        // End of stream handling
+        if (done) {
+          break;
+        }
 
         const chunkValue = decoder.decode(value, { stream: true });
         buffer += chunkValue;
@@ -188,7 +294,6 @@ export function useChat() {
                   )
                 );
               } else if (data.type === "pronunciation_data") {
-                // NEW: Handle pronunciation assessment data
                 const pronunciationInfo: PronunciationData = {
                   accuracy: data.accuracy,
                   fluency: data.fluency,
@@ -196,39 +301,14 @@ export function useChat() {
                   completeness: data.completeness,
                   mispronounced_words: data.mispronounced_words || []
                 };
-                
                 setPronunciationData(pronunciationInfo);
-                
-                // Log to console for debugging
-                console.log("Pronunciation Assessment:", pronunciationInfo);
-                
-                // Optional: Show toast notification with score
-                if (pronunciationInfo.pronunciation_score >= 80) {
-                  console.log(`🎯 Excellent pronunciation! ${pronunciationInfo.pronunciation_score}/100`);
-                } else if (pronunciationInfo.pronunciation_score >= 60) {
-                  console.log(`👍 Good job! ${pronunciationInfo.pronunciation_score}/100`);
-                } else {
-                  console.log(`💪 Keep practicing! ${pronunciationInfo.pronunciation_score}/100`);
-                }
               } else if (data.type === "text_chunk") {
-                botContent += data.content;
-
-                setMessages((prev) => {
-                  const lastMsg = prev[prev.length - 1];
-                  if (isFirstChunk || lastMsg.role !== "assistant" || lastMsg.id !== botMsgId) {
-                    isFirstChunk = false;
-                    return [...prev, { id: botMsgId, role: "assistant", content: botContent }];
-                  } else {
-                    return prev.map((m) =>
-                      m.id === botMsgId ? { ...m, content: botContent } : m
-                    );
-                  }
-                });
-              } else if (data.type === "audio") {
-                // Queue audio for playback
-                playAudio(data.data);
+                // Legacy or debug: ignore for now as we use response_segment
+                // botContent += data.content; 
+              } else if (data.type === "response_segment") {
+                // Push synchronized segment to queue
+                setSegmentQueue(prev => [...prev, { text: data.text, audio: data.audio }]);
               } else if (data.type === "error") {
-                // NEW: Handle error events (e.g., "Audio generation not available")
                 console.warn("Backend error:", data.content);
               }
             } catch (e) {
@@ -248,14 +328,15 @@ export function useChat() {
     }
   };
 
-  return { 
-    messages, 
-    sendMessage, 
-    isLoading, 
-    isPlaying, 
-    sessionId, 
-    loadSession, 
+  return {
+    messages,
+    sendMessage,
+    isLoading,
+    isPlaying: !!currentAnalyser,
+    currentAnalyser,
+    sessionId,
+    loadSession,
     createNewChat,
-    pronunciationData // Export pronunciation data for use in components
+    pronunciationData
   };
 }

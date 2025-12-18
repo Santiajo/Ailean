@@ -13,12 +13,12 @@
   flex-direction: column;
   align-items: center;
   gap: 28px;
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.5) 0%, rgba(15, 23, 42, 0.5) 100%);
+  background: var(--bg-card-gradient);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(51, 65, 85, 0.5);
+  border: 1px solid var(--border-card);
   border-radius: 20px;
   padding: 32px 24px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   transition: all 0.4s ease;
   animation: slideUp 0.6s ease forwards;
   opacity: 0;
@@ -29,6 +29,7 @@
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -37,8 +38,8 @@
 
 .circleCard:hover {
   transform: translateY(-8px) scale(1.02);
-  box-shadow: 0 12px 48px rgba(59, 130, 246, 0.3);
-  border-color: rgba(59, 130, 246, 0.5);
+  box-shadow: 0 12px 48px rgba(59, 130, 246, 0.15);
+  border-color: var(--accent);
 }
 
 .circleContainer {
@@ -66,21 +67,21 @@
 .percentValue {
   font-size: 42px;
   font-weight: 700;
-  color: #fff;
-  text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+  color: var(--text-primary);
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
 }
 
 .percentSign {
   font-size: 24px;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .circleLabel {
   text-align: center;
   font-size: 14px;
   font-weight: 600;
-  color: #cbd5e1;
+  color: var(--text-secondary);
   max-width: 180px;
   line-height: 1.5;
   text-transform: capitalize;
