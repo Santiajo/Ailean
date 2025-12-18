@@ -30,7 +30,7 @@ export default function ProgressCircles({ items }: ProgressCirclesProps) {
                 cy="90"
                 r="75"
                 fill="none"
-                stroke="#1e293b"
+                stroke="var(--circle-track)"
                 strokeWidth="14"
               />
               <circle

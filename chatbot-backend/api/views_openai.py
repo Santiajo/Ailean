@@ -207,21 +207,19 @@ PRONUNCIATION FEEDBACK (when available):
                 
                 response_text = starter_data['response']
                 
-                # Simulate chunking
-                chunk_size = 20
-                for i in range(0, len(response_text), chunk_size):
-                    chunk = response_text[i:i+chunk_size]
-                    yield f"data: {json.dumps({'type': 'text_chunk', 'content': chunk})}\n\n"
-                
                 # Generate audio for the FULL cleaned response
                 cleaned_full_text = clean_text_for_speech(response_text)
+                audio_base64 = None
+                
                 if cleaned_full_text:
                     audio_content = generate_speech(cleaned_full_text)
                     if audio_content:
                         audio_base64 = base64.b64encode(audio_content).decode('utf-8')
-                        yield f"data: {json.dumps({'type': 'audio', 'data': audio_base64})}\n\n"
                     else:
                         yield f"data: {json.dumps({'type': 'error', 'content': 'Audio generation not available'})}\n\n"
+                
+                # Send single synchronized segment
+                yield f"data: {json.dumps({'type': 'response_segment', 'text': response_text, 'audio': audio_base64})}\n\n"
 
                 if chat_session:
                     ChatMessage.objects.create(session=chat_session, role='assistant', content=response_text)
@@ -270,19 +268,28 @@ PRONUNCIATION FEEDBACK (when available):
                 yield f"data: {json.dumps(pronunciation_payload)}\n\n"
             # --------------------------------------------
 
+            accumulated_raw_text = ""
+
             try:
                 for chunk in stream:
                     if chunk.choices[0].delta.content:
                         content = chunk.choices[0].delta.content
                         full_response_text += content
                         buffer += content
-                        yield f"data: {json.dumps({'type': 'text_chunk', 'content': content})}\n\n"
+                        # We still send text_chunk for "fast" display if frontend wants it, 
+                        # but for sync mode we strictly use response_segment
+                        # yield f"data: {json.dumps({'type': 'text_chunk', 'content': content})}\n\n"
                         
                         # Check for sentence completion
-                        match = re.search(r'[.!?]\s', buffer)
-                        if match:
+                        while True:
+                            match = re.search(r'[.!?]\s', buffer)
+                            if not match:
+                                break
+                                
                             sentence = buffer[:match.end()]
                             buffer = buffer[match.end():]
+                            
+                            accumulated_raw_text += sentence
                             
                             # Add to speech buffer
                             cleaned_sentence = clean_text_for_speech(sentence)
@@ -292,32 +299,45 @@ PRONUNCIATION FEEDBACK (when available):
                             # Only generate audio if buffer is long enough (e.g. > 50 chars) to reduce requests/choppiness
                             if len(speech_buffer) > 50:
                                 audio_content = generate_speech(speech_buffer.strip())
+                                audio_base64 = None
                                 if audio_content:
                                     audio_base64 = base64.b64encode(audio_content).decode('utf-8')
-                                    yield f"data: {json.dumps({'type': 'audio', 'data': audio_base64})}\n\n"
                                 else:
                                     print("⚠ Audio generation failed")
-                                    yield f"data: {json.dumps({'type': 'error', 'content': 'Audio generation not available'})}\n\n"
+                                
+                                # Send synchronized segment
+                                yield f"data: {json.dumps({'type': 'response_segment', 'text': accumulated_raw_text, 'audio': audio_base64})}\n\n"
+                                
+                                # Reset buffers
                                 speech_buffer = ""
+                                accumulated_raw_text = ""
+
             except Exception as e:
                 print(f"Stream error: {e}")
                 yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
             
-            # Process remaining text buffer
+            # Process remaining text buffer (incomplete sentence or end of stream)
             if buffer.strip():
-                 cleaned_buffer = clean_text_for_speech(buffer)
+                 sentence = buffer
+                 accumulated_raw_text += sentence
+                 cleaned_buffer = clean_text_for_speech(sentence)
                  if cleaned_buffer:
                      speech_buffer += " " + cleaned_buffer
 
-            # Process remaining speech buffer
-            if speech_buffer.strip():
-                audio_content = generate_speech(speech_buffer.strip())
-                if audio_content:
-                    audio_base64 = base64.b64encode(audio_content).decode('utf-8')
-                    yield f"data: {json.dumps({'type': 'audio', 'data': audio_base64})}\n\n"
+            # Process remaining speech buffer / raw text
+            if accumulated_raw_text.strip():
+                if speech_buffer.strip():
+                    audio_content = generate_speech(speech_buffer.strip())
+                    audio_base64 = None
+                    if audio_content:
+                        audio_base64 = base64.b64encode(audio_content).decode('utf-8')
+                    else:
+                         print("⚠ Final audio generation failed")
+                    
+                    yield f"data: {json.dumps({'type': 'response_segment', 'text': accumulated_raw_text, 'audio': audio_base64})}\n\n"
                 else:
-                    print("⚠ Final audio generation failed")
-                    yield f"data: {json.dumps({'type': 'error', 'content': 'Audio generation not available'})}\n\n"
+                    # Text only (no speech content)
+                    yield f"data: {json.dumps({'type': 'response_segment', 'text': accumulated_raw_text, 'audio': None})}\n\n"
             
             # --- Persistence: Save Assistant Message ---
             if chat_session and full_response_text:

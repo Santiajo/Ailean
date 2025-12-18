@@ -8,6 +8,7 @@ import styles from "../css/FloatingAvatar.module.css";
 interface FloatingAvatarProps {
   containerRef: React.RefObject<HTMLDivElement | null>;
   isTalking?: boolean;
+  analyser?: AnalyserNode | null;
   color?: string;
   accessories?: {
     hat?: boolean;
@@ -18,6 +19,7 @@ interface FloatingAvatarProps {
 export default function FloatingAvatar({
   containerRef,
   isTalking = false,
+  analyser = null,
   color = "#7ab6ff",
   accessories = {},
 }: FloatingAvatarProps) {
@@ -43,18 +45,68 @@ export default function FloatingAvatar({
   const [mouthIndex, setMouthIndex] = useState(2); // boca neutral
   const [eyeIndex, setEyeIndex] = useState(0); // ojos abiertos
 
-  // Animación de boca
+  // Animación de boca (Audio Driven or Fallback)
   useEffect(() => {
-    let interval: number;
-    if (isTalking) {
-      interval = window.setInterval(() => {
-        setMouthIndex((prev) => (prev + 1) % mouthFrames.length);
-      }, 250);
+    let animationFrameId: number;
+    let intervalId: number;
+
+    // Config for sensitivity
+    const bufferLength = 256;
+    const dataArray = new Uint8Array(bufferLength);
+
+    const updateMouth = () => {
+      if (!analyser) return;
+
+      try {
+        analyser.getByteFrequencyData(dataArray);
+
+        // Calculate average volume
+        let sum = 0;
+        // Focus on lower frequencies for speech
+        const speechRangeFn = Math.floor(bufferLength * 0.5);
+        for (let i = 0; i < speechRangeFn; i++) {
+          sum += dataArray[i];
+        }
+        const average = sum / speechRangeFn;
+
+        // Map average volume (0-255) to mouth frames
+        // Thresholds need tuning.
+        if (average < 10) {
+          setMouthIndex(2); // Neutral (Closed)
+        } else if (average < 50) {
+          setMouthIndex(0); // Open 1 (Small)
+        } else {
+          setMouthIndex(1); // Open 2 (Big)
+        }
+
+        animationFrameId = requestAnimationFrame(updateMouth);
+      } catch (e) {
+        // If analyser is disconnected/error
+        // Fallback handled by isTalking logic below or cleanup
+        console.warn("Analyser error", e);
+      }
+    };
+
+    if (analyser) {
+      updateMouth();
+    } else if (isTalking) {
+      // Fallback: Simple Loop
+      intervalId = window.setInterval(() => {
+        setMouthIndex((prev) => {
+          if (prev === 2) return 0;
+          if (prev === 0) return 1;
+          return 2;
+        });
+      }, 150); // Faster than 250ms for snappier feel
     } else {
       setMouthIndex(2);
     }
-    return () => clearInterval(interval);
-  }, [isTalking]);
+
+    return () => {
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [isTalking, analyser]);
 
   // Parpadeo
   useEffect(() => {
