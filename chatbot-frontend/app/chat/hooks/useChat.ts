@@ -162,7 +162,7 @@ export function useChat() {
     setPronunciationData(null); // Clear pronunciation data
     try {
       const token = localStorage.getItem("accessToken");
-      const res = await fetch(`http://localhost:8000/api/sessions/${id}/messages/`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/sessions/${id}/messages/`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -233,7 +233,7 @@ export function useChat() {
       }
 
       // 2. Send Request (SSE)
-      const response = await fetch("http://localhost:8000/api/chat/", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/chat/`, {
         method: "POST",
         headers,
         body: formData,

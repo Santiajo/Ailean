@@ -25,9 +25,12 @@ export default function Sidebar({ sessionId, loadSession, createNewChat }: Sideb
       const token = localStorage.getItem("accessToken");
       if (!token) return;
 
-      const res = await fetch("http://localhost:8000/api/sessions/", {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+
+      const res = await fetch(`${apiUrl}/api/sessions/`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+
       if (res.ok) {
         const data = await res.json();
         setSessions(data);
@@ -49,7 +52,7 @@ export default function Sidebar({ sessionId, loadSession, createNewChat }: Sideb
 
     try {
       const token = localStorage.getItem("accessToken");
-      const res = await fetch(`http://localhost:8000/api/sessions/${id}/`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/sessions/${id}/`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -72,7 +75,7 @@ export default function Sidebar({ sessionId, loadSession, createNewChat }: Sideb
     e.stopPropagation();
     try {
       const token = localStorage.getItem("accessToken");
-      const res = await fetch(`http://localhost:8000/api/sessions/${id}/`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/sessions/${id}/`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

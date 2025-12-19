@@ -39,7 +39,7 @@ export default function ProgressPage() {
 
   const fetchProgress = async (token: string) => {
     try {
-      const res = await fetch("http://localhost:8000/api/progress/", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/progress/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
