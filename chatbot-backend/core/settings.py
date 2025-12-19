@@ -146,7 +146,9 @@ REST_FRAMEWORK = {
 
 # Configuración de CORS
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
+    "http://localhost:3000",             
+    "http://127.0.0.1:3000",
+    "https://ailean.vercel.app", 
 ]
 
 # Configuration duración de tokens JWT
