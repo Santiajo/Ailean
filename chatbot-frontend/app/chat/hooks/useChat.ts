@@ -37,6 +37,14 @@ export function useChat() {
   // New state for pronunciation assessment
   const [pronunciationData, setPronunciationData] = useState<PronunciationData | null>(null);
 
+  // Persona State
+  const [currentPersona, setCurrentPersona] = useState("friendly");
+
+  useEffect(() => {
+    const saved = localStorage.getItem("preferredPersona");
+    if (saved) setCurrentPersona(saved);
+  }, []);
+
   // Process the segment queue
   useEffect(() => {
     const processQueue = async () => {
@@ -189,6 +197,7 @@ export function useChat() {
     setIsProcessingQueue(false);
     setCurrentAnalyser(null);
     setPronunciationData(null);
+    // Persist persona across chats (it's user pref)
   };
 
   const sendMessage = async (content: string | Blob, isAudio: boolean = false) => {
@@ -225,6 +234,9 @@ export function useChat() {
       // Send chat history for context (optional, but good for new chats)
       const history = messages.map(m => ({ role: m.role, content: m.content }));
       formData.append("history", JSON.stringify(history));
+
+      // Append Persona
+      formData.append("persona", currentPersona);
 
       const token = localStorage.getItem("accessToken");
       const headers: HeadersInit = {};
@@ -337,6 +349,8 @@ export function useChat() {
     sessionId,
     loadSession,
     createNewChat,
-    pronunciationData
+    pronunciationData,
+    currentPersona,
+    setCurrentPersona
   };
 }

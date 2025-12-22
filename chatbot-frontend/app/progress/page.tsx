@@ -89,6 +89,10 @@ export default function ProgressPage() {
         sessionId={null}
         createNewChat={() => router.push('/chat')}
         loadSession={(id) => router.push(`/chat?sessionId=${id}`)}
+        currentPersona="friendly"
+        setPersona={() => { }}
+        isOpen={false}
+        onClose={() => { }}
       />
       <div className={styles.mainContent}>
         {/* Header */}

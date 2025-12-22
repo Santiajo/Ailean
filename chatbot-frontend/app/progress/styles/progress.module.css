@@ -55,6 +55,23 @@
   margin: 0;
 }
 
+@media (max-width: 768px) {
+  .container {
+    padding: 10px;
+    padding-top: 60px;
+    /* Space for hidden header/back button */
+  }
+
+  .chartsGrid {
+    grid-template-columns: 1fr;
+    /* Stack charts */
+  }
+
+  .header h1 {
+    font-size: 24px;
+  }
+}
+
 .contentWrapper {
   flex: 1;
   overflow-y: auto;

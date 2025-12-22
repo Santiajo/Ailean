@@ -7,6 +7,7 @@ import AvatarCustomizer from "./components/AvatarCustomizer";
 import styles from "./page.module.css";
 import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { Settings } from "lucide-react";
 
 import { useChat } from "./hooks/useChat";
 
@@ -22,6 +23,8 @@ export default function Page() {
 
   const [showCustomizer, setShowCustomizer] = useState(false);
 
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
   // Theme State
   const [isDarkMode, setIsDarkMode] = useState(true);
 
@@ -33,22 +36,30 @@ export default function Page() {
   }, []);
 
   const toggleTheme = () => {
-    setIsDarkMode((prev) => {
-      const newMode = !prev; // Toggle
+    const switchTheme = () => {
+      setIsDarkMode((prev) => {
+        const newMode = !prev; // Toggle
 
-      // Update DOM
-      if (newMode) {
-        document.documentElement.classList.remove('light-mode');
-        localStorage.setItem('theme', 'dark');
-        console.log("Switched to Dark Mode");
-      } else {
-        document.documentElement.classList.add('light-mode');
-        localStorage.setItem('theme', 'light');
-        console.log("Switched to Light Mode");
-      }
+        // Update DOM
+        if (newMode) {
+          document.documentElement.classList.remove('light-mode');
+          localStorage.setItem('theme', 'dark');
+          console.log("Switched to Dark Mode");
+        } else {
+          document.documentElement.classList.add('light-mode');
+          localStorage.setItem('theme', 'light');
+          console.log("Switched to Light Mode");
+        }
 
-      return newMode;
-    });
+        return newMode;
+      });
+    };
+
+    if (document.startViewTransition) {
+      document.startViewTransition(switchTheme);
+    } else {
+      switchTheme();
+    }
   };
 
   // Lifted Chat State
@@ -87,16 +98,30 @@ export default function Page() {
     return null;
   }
 
-
-
   return (
     <div className={styles.page}>
       <Sidebar
         sessionId={chat.sessionId}
         loadSession={chat.loadSession}
         createNewChat={chat.createNewChat}
+        currentPersona={chat.currentPersona}
+        setPersona={chat.setCurrentPersona}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
       />
       <div className={styles.chatArea} ref={chatContainerRef} style={{ position: "relative" }}>
+        {/* Mobile Menu Button - Controlled by CSS */}
+        <button
+          onClick={() => setIsSidebarOpen(true)}
+          className={styles.mobileMenuBtn}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+
         <FloatingAvatar
           containerRef={chatContainerRef}
           isTalking={chat.isPlaying}
@@ -112,86 +137,43 @@ export default function Page() {
           isBotTyping={chat.isLoading}
         />
 
-        {/* Botón Tema (Light/Dark) */}
-        <button
-          onClick={toggleTheme}
-          style={{
-            position: "absolute",
-            bottom: 20,
-            right: 70, // Left of the settings button
-            zIndex: 60,
-            background: isDarkMode ? "#334155" : "#e2e8f0",
-            border: "none",
-            borderRadius: "50%",
-            width: 40,
-            height: 40,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: isDarkMode ? "white" : "#1e293b",
-            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-            transition: "all 0.3s ease"
-          }}
-          title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
-        >
-          {isDarkMode ? (
-            // Sun Icon
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="5"></circle>
-              <line x1="12" y1="1" x2="12" y2="3"></line>
-              <line x1="12" y1="21" x2="12" y2="23"></line>
-              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-              <line x1="1" y1="12" x2="3" y2="12"></line>
-              <line x1="21" y1="12" x2="23" y2="12"></line>
-              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-            </svg>
-          ) : (
-            // Moon Icon
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-            </svg>
-          )}
-        </button>
-
-        {/* Botón para abrir/cerrar personalización */}
-        <button
-          onClick={() => setShowCustomizer(!showCustomizer)}
-          style={{
-            position: "absolute",
-            bottom: 20,
-            right: 20,
-            zIndex: 60,
-            background: "#334155",
-            border: "none",
-            borderRadius: "50%",
-            width: 40,
-            height: 40,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "white",
-            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-          }}
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+        {/* Floating Controls (Theme & Customizer) */}
+        <div className={styles.controlsContainer}>
+          {/* Botón Tema (Light/Dark) */}
+          <button
+            onClick={toggleTheme}
+            className={styles.roundBtn}
+            title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
           >
-            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-            <circle cx="12" cy="12" r="3" />
-          </svg>
-        </button>
+            {isDarkMode ? (
+              // Sun Icon
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="5"></circle>
+                <line x1="12" y1="1" x2="12" y2="3"></line>
+                <line x1="12" y1="21" x2="12" y2="23"></line>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                <line x1="1" y1="12" x2="3" y2="12"></line>
+                <line x1="21" y1="12" x2="23" y2="12"></line>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+              </svg>
+            ) : (
+              // Moon Icon
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+              </svg>
+            )}
+          </button>
+
+          {/* Botón para abrir/cerrar personalización */}
+          <button
+            onClick={() => setShowCustomizer(!showCustomizer)}
+            className={styles.roundBtn}
+          >
+            <Settings size={20} />
+          </button>
+        </div>
 
         {/* Panel de personalización */}
         {showCustomizer && (

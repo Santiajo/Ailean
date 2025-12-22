@@ -23,7 +23,7 @@ export default function FloatingAvatar({
   color = "#7ab6ff",
   accessories = {},
 }: FloatingAvatarProps) {
-  const AVATAR_SIZE = 250;
+  const [avatarSize, setAvatarSize] = useState(250);
   const MARGIN = 12;
 
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -130,19 +130,25 @@ export default function FloatingAvatar({
   }, []);
 
   useEffect(() => {
-    const updateBounds = () => {
+    const updateBoundsAndSize = () => {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
         setBounds(rect);
+
+        // Responsive Size
+        const isMobile = window.innerWidth < 768;
+        const newSize = isMobile ? 180 : 250;
+        setAvatarSize(newSize);
+
         setPosition({
-          x: rect.width / 2 - AVATAR_SIZE / 2,
+          x: rect.width / 2 - newSize / 2,
           y: MARGIN,
         });
       }
     };
-    updateBounds();
-    window.addEventListener("resize", updateBounds);
-    return () => window.removeEventListener("resize", updateBounds);
+    updateBoundsAndSize();
+    window.addEventListener("resize", updateBoundsAndSize);
+    return () => window.removeEventListener("resize", updateBoundsAndSize);
   }, [containerRef]);
 
   useEffect(() => {
@@ -150,8 +156,8 @@ export default function FloatingAvatar({
       if (!isDragging) return;
       const minX = MARGIN;
       const minY = MARGIN;
-      const maxX = bounds.width - AVATAR_SIZE - MARGIN;
-      const maxY = bounds.height - AVATAR_SIZE - MARGIN;
+      const maxX = bounds.width - avatarSize - MARGIN;
+      const maxY = bounds.height - avatarSize - MARGIN;
 
       let newX = e.clientX - offset.x - bounds.left;
       let newY = e.clientY - offset.y - bounds.top;
@@ -172,7 +178,7 @@ export default function FloatingAvatar({
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isDragging, offset, bounds]);
+  }, [isDragging, offset, bounds, avatarSize]);
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     setIsDragging(true);
@@ -188,7 +194,7 @@ export default function FloatingAvatar({
       onMouseDown={handleMouseDown}
       animate={{ x: position.x, y: position.y }}
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
-      style={{ width: AVATAR_SIZE, height: AVATAR_SIZE }}
+      style={{ width: avatarSize, height: avatarSize }}
     >
       <div className={styles.avatarBody}>
         {/* Capa de color base */}
@@ -225,8 +231,8 @@ export default function FloatingAvatar({
           <Image
             src="/avatar/accesorios/sombrero1.png"
             alt="Sombrero"
-            width={AVATAR_SIZE * 0.8}
-            height={(AVATAR_SIZE * 0.8) * (80 / 150)}
+            width={avatarSize * 0.8}
+            height={(avatarSize * 0.8) * (80 / 150)}
             className={styles.hat}
             draggable={false}
           />
@@ -235,8 +241,8 @@ export default function FloatingAvatar({
           <Image
             src="/avatar/accesorios/lentes1.png"
             alt="Gafas"
-            width={250}
-            height={250}
+            width={avatarSize}
+            height={avatarSize}
             className={styles.accessory}
             draggable={false}
           />

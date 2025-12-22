@@ -1,0 +1,106 @@
+.container {
+    padding: 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 16px;
+    width: 260px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    color: var(--text-primary);
+    font-family: inherit;
+    z-index: 50;
+    backdrop-filter: blur(10px);
+}
+
+.title {
+    margin-bottom: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.colorsGrid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 24px;
+}
+
+.colorBtn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.colorBtn:hover {
+    transform: scale(1.15);
+}
+
+.colorBtn.selected {
+    border-color: var(--accent);
+    transform: scale(1.1);
+}
+
+.accessoriesGrid {
+    display: flex;
+    gap: 8px;
+}
+
+.accessoryBtn {
+    flex: 1;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border-card);
+    background: var(--bg-chip);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.accessoryBtn:hover {
+    background: var(--hover-sidebar-item);
+    border-color: var(--text-secondary);
+}
+
+.accessoryBtn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+}
+
+@media (max-width: 768px) {
+    .container {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 90%;
+        max-width: 350px;
+        border-radius: 20px;
+        padding: 24px;
+        animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .colorsGrid {
+        justify-content: center;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translate(-50%, 20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+}

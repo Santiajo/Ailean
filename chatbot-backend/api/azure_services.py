@@ -177,3 +177,41 @@ def format_pronunciation_feedback(assessment_data):
         feedback_parts.append("\nNo significant pronunciation errors detected.")
     
     return "\n".join(feedback_parts)
+
+
+def generate_speech(text, voice_name="en-US-JennyNeural"):
+    """
+    Generates speech from text using Azure Speech SDK.
+    Returns the binary content of the audio file (MP3/WAV).
+    """
+    if not AZURE_SPEECH_KEY or not AZURE_SPEECH_REGION:
+        print("Azure Speech not configured for TTS")
+        return None
+
+    try:
+        import azure.cognitiveservices.speech as speechsdk
+        
+        speech_config = speechsdk.SpeechConfig(subscription=AZURE_SPEECH_KEY, region=AZURE_SPEECH_REGION)
+        speech_config.speech_synthesis_voice_name = voice_name
+        
+        # We want the audio data in memory
+        # Set output format to something standard like Mp3-128kbps or Riff-16khz
+        speech_config.set_speech_synthesis_output_format(speechsdk.SpeechSynthesisOutputFormat.Audio16Khz32KBitRateMonoMp3)
+
+        # Null audio config means "don't play to speaker, just synthesize"
+        synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=None)
+
+        result = synthesizer.speak_text_async(text).get()
+
+        if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
+            return result.audio_data
+        elif result.reason == speechsdk.ResultReason.Canceled:
+            cancellation_details = result.cancellation_details
+            print(f"Speech synthesis canceled: {cancellation_details.reason}")
+            if cancellation_details.reason == speechsdk.CancellationReason.Error:
+                print(f"Error details: {cancellation_details.error_details}")
+            return None
+            
+    except Exception as e:
+        print(f"Error in Azure TTS: {e}")
+        return None
