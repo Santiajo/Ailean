@@ -84,3 +84,20 @@
   color: white;
   transform: translateY(-2px);
 }
+
+@media (max-width: 768px) {
+  .messages {
+    padding: 10px;
+    padding-bottom: 90px;
+    padding-top: 250px;
+    /* Space for hidden header or menu button */
+  }
+
+  .input {
+    padding: 10px;
+  }
+
+  .emptyTitle {
+    font-size: 20px;
+  }
+}

@@ -4,9 +4,9 @@
   font-family: 'Poppins', sans-serif;
   width: 100%;
   display: flex;
-  min-width: 314px; 
+  min-width: 314px;
   flex-direction: column;
-  gap: 60px;
+  gap: 24px;
   padding: 30px 25px;
   border-radius: 15px;
   background: #1e293b;
@@ -48,7 +48,7 @@
 }
 
 .passwordWrapper input {
-  padding-right: 45px; 
+  padding-right: 45px;
 }
 
 .inputWrapper input::placeholder,
@@ -79,7 +79,7 @@
   pointer-events: none;
 }
 
-.passwordWrapper input:focus + .eyeIcon {
+.passwordWrapper input:focus+.eyeIcon {
   color: #589cf0;
 }
 
@@ -119,11 +119,30 @@
   color: #96befa;
 }
 
+.signupLink {
+  margin-top: 20px;
+  font-size: 0.9rem;
+  color: #e2e8f0;
+  text-align: center;
+}
+
+.signupLink a {
+  color: #60a5fa;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.signupLink a:hover {
+  color: #93c5fd;
+  text-decoration: underline;
+}
+
 @media (max-width: 1025px) {
   .loginForm {
     width: 100%;
     padding: 30px 15px;
-    gap: 20px; 
+    gap: 20px;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -131,10 +150,11 @@
   }
 
   .loginForm h2 {
-    font-size: 1.6rem; 
+    font-size: 1.6rem;
   }
 
-  .inputWrapper, .passwordWrapper {
+  .inputWrapper,
+  .passwordWrapper {
     width: 100%;
     max-width: 100%;
   }
@@ -142,7 +162,7 @@
   .inputWrapper input,
   .passwordWrapper input,
   .loginForm button {
-    width: 100%; 
+    width: 100%;
     font-size: 1rem;
     padding: 12px 15px;
   }

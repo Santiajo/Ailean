@@ -112,52 +112,97 @@ class ChatView(APIView):
             return re.sub(r'\s*\(.*?\)', '', text).strip()
 
         # 2. Get Response from LLM (Streaming)
-        # --- UPDATED SYSTEM PROMPT FOR CONCISE RESPONSES WITH INTEGRATED FEEDBACK ---
-        base_system_prompt = """You are an English Tutor AI. Your goal is to help students improve their English skills.
-
-CRITICAL: Keep responses VERY CONCISE (2-4 sentences maximum). Be direct and helpful.
-
-Guidelines:
-- Answer briefly and naturally
-- If user asks for examples, give 2-3 SHORT examples
-- Use bullet points only when specifically requested
-- Be encouraging but concise
-- If user speaks Spanish, reply in Spanish but encourage English practice
-
-PRONUNCIATION FEEDBACK (when available):
-- Integrate pronunciation tips NATURALLY into your response
-- Be specific about which sounds need work
-- Keep pronunciation feedback to 1-2 sentences
-- Example: "Great! By the way, try pronouncing 'think' with your tongue between your teeth: 'thhhink', not 'tink'."
-"""
+        
+        # 2. Get Response from LLM (Streaming)
+        
+        # --- DEFINITIONS ---
+        personas = {
+            "friendly": {
+                "voice": "en-US-AvaMultilingualNeural", # Multilingual (Fluent En/Es)
+                "system_prompt": """You are a Friendly English Tutor AI.
+Role: You are the teacher. TEACH directly. Do NOT recommend external apps/websites.
+Goal: Help students improve English in a warm, supportive way.
+Style: Cheerful, patient, and easy to understand.
+Interact: Encourage the student often. Do NOT use emojis.
+Language: If student speaks Spanish, reply in Spanish but gently guide to English.
+Conciseness: Keep responses SHORT (2-4 sentences).
+Context: If there is existing conversation history, CONTINUE it naturally. Do NOT ignore previous messages.""",
+            },
+            "strict": {
+                "voice": "en-US-AndrewMultilingualNeural", # Multilingual (Fluent En/Es)
+                "system_prompt": """You are a Strict English Professor AI.
+Role: You are the professor. TEACH directly. Do NOT recommend external apps/websites.
+Goal: Ensure grammatical accuracy and formal usage.
+Style: Formal, direct, and serious. Do NOT use emojis.
+Interact: Correct mistakes immediately. Do not tolerate slang unless asked.
+Language: Use high-level English.
+Conciseness: Precise and concise (2-4 sentences).
+Context: If there is existing conversation history, CONTINUE it naturally. Do NOT ignore previous messages.""",
+            },
+            "encouraging": {
+                "voice": "en-US-BrianMultilingualNeural", # Multilingual (Fluent En/Es)
+                "system_prompt": """You are an Encouraging Coach AI.
+Role: You are the coach. TRAIN the student directly. Do NOT recommend external apps/websites.
+Goal: Motivate the student to speak without fear.
+Style: High energy, positive, and motivational. Do NOT use emojis.
+Interact: Celebrate mistakes as learning opportunities. "You got this!"
+Language: Simple, punchy English.
+Conciseness: Short and energetic (2-4 sentences).
+Context: If there is existing conversation history, CONTINUE it naturally. Do NOT ignore previous messages.""",
+            },
+            "chill": {
+                "voice": "en-US-EmmaMultilingualNeural", # Multilingual (Fluent En/Es)
+                "system_prompt": """You are a Chill Study Buddy AI.
+Role: You are a study partner. PRACTICE together. Do NOT recommend external apps/websites.
+Goal: Chat comfortably like a friend.
+Style: Relaxed, uses slang (like 'gonna', 'wanna'), casual. Do NOT use emojis.
+Interact: Cool and laid back.
+Language: Casual English.
+Conciseness: Short and casual (2-4 sentences).
+Context: If there is existing conversation history, CONTINUE it naturally. Do NOT ignore previous messages.""",
+            },
+             "professional": {
+                "voice": "en-US-AndrewMultilingualNeural", # Sharing Andrew (Professional tone)
+                "system_prompt": """You are a Professional English Tutor AI.
+Role: You are the instructor. TEACH directly. Do NOT recommend external apps/websites.
+Goal: Teach English with a focus on professional/business contexts, BUT help students of ALL levels (A1-C2).
+Style: Professional, polite, and efficient. Do NOT use emojis.
+Interact: Explain concepts clearly. If the user is a beginner, use simple professional language. NEVER refuse to help with basic English.
+Language: Business-appropriate English.
+Conciseness: Professional and brief (2-3 sentences).
+Context: If there is existing conversation history, CONTINUE it naturally. Do NOT ignore previous messages.""",
+            }
+        }
         
         # Starter Prompts & Responses
         starter_responses = {
             "Quiero obtener retroalimentación": {
-                "response": "¡Hola!\n¡Qué bueno tenerte por aquí! Antes de darte retroalimentación, necesito un poquito más de información para ayudarte de forma precisa y útil.\n\n¿Sobre qué necesitas retroalimentación?\nPuede ser:\n\nUn writing (puedes subir una foto si es manuscrito, recuerda que sea legible).\n\nListening.\n\nReading.\n\nSpeaking (puedes describirme lo que dijiste).\n\nGramática o vocabulario.\n\nAlguna actividad de tu curso (Starter, Elementary, etc.).\n\nAdemás, cuéntame:\n\n¿Qué nivel/\"File\" estás estudiando ahora?\n\n¿Cuál es tu objetivo para esta sesión de 30 minutos?\n\n¿Te falta ponerte al día con alguna unidad o clase?\n\n¡Ganbatte! (頑張って)",
+                "response": "¡Claro que sí! Estoy listo para ayudarte a mejorar. Por favor, envíame el texto o audio que quieres que revise, o simplemente empieza a hablar y yo te iré corrigiendo.",
                 "mode": "feedback",
-                "system_prompt": "You are an English Tutor AI helping with feedback. Focus on correcting mistakes and explaining grammar/vocabulary. Keep responses concise (3-5 sentences). Be encouraging but direct."
+                "system_prompt": "Focus explicitly on giving feedback. Correct grammar and pronunciation errors politely but clearly. Explain WHY it was an error."
             },
-            "Quiero aprender ingles basico": {
-                "response": "¡Hola!\n¡Qué alegría tenerte por aquí! ¿Cómo te sientes hoy?\n\nAntes de empezar, quiero organizar tu ruta de estudio para que aproveches esta sesión de 30 minutos al máximo.\n\nPara personalizar tu aprendizaje, necesito saber:\n\n¿Cuál es tu nivel actual?\n\nBásico 1 (Starter A)\n\nBásico 2 (Starter B)\n\nElementary\n(Si no sabes, ¡yo te ayudo!)\n\n¿Estás estudiando algún File específico?\nEj.: Starter File 1, File 2… (de American English File).\n\n¿Tienes alguna dificultad en particular?\n(vocabulario, gramática, listening, speaking…)\n\n¿Cuál es tu objetivo para esta sesión?\nEj.: aprender present simple, saludar en inglés, practicar conversación, etc.\n\nY también: ¿te estás poniendo al día con alguna unidad que te perdiste en clase?\n\n¡Ganbatte! がんばって",
+             "Quiero aprender ingles basico": {
+                "response": "¡Excellent! Empecemos con lo básico. ¿Qué tal si practicamos saludos y presentaciones? Repite después de mí: 'Hello, my name is...'. ¡Inténtalo!",
                 "mode": "basic",
-                "system_prompt": "You are an English Tutor AI for Basic level students (A1). Use simple English, be very patient. Keep responses SHORT (2-4 sentences). Focus on basic vocabulary and grammar."
+                "system_prompt": "TEACHING CONTEXT: The user is a BEGINNER (A1). RULE: Provide ALL instructions, feedback, and encouragement IN SPANISH. Only speak English when demonstrating the specific words or phrases the student must learn. Do not carry a conversation in English yet."
             },
-            "Quiero aprender ingles elemental": {
-                "response": "¡Hola!\n¡Bienvenido/a a Chill English Bot 2.0!\nMe alegra muchísimo verte con ganas de aprender inglés en nivel Elementary.\nAntes de empezar, cuéntame:\n\n¿Cómo te sientes hoy?\n\n(¡Tu estado emocional es importante para aprender bien!)\n\n¿Cuál es tu objetivo para esta sesión de 30 minutos?\n\nPor ejemplo:\n\nGramática (present simple, past simple, countable/uncountable…)\n\nVocabulario (comida, rutinas, lugares, trabajo…)\n\nSpeaking\n\nListening\n\nRepaso general\n\nY una pregunta clave:\n\n¿En qué File vas actualmente? (Del curso Elementary: Files 1, 2 o 3).\n¿O quieres empezar desde el File 1?\n\nSi te has atrasado alguna clase, también dime para ayudarte a ponerte al día. (がんばって!)",
+             "Quiero aprender ingles elemental": {
+                "response": "¡Great choice! Vamos a subir un pequeño escalón. Hablemos de tus rutinas diarias o hobbies. Tell me, what do you usually do in the mornings?",
                 "mode": "elementary",
-                "system_prompt": "You are an English Tutor AI for Elementary level students (A2). Encourage full sentences but keep explanations simple and SHORT (3-5 sentences max)."
+                "system_prompt": "TEACHING CONTEXT: The user is ELEMENTARY (A2). RULE: Use primarily SPANISH for complex explanations. Use simple English for questions and basic conversation. Ensure the user understands before moving on."
             },
-            "Quiero aprender ingles Intermedio": {
-                "response": "¡Hello, hello!\n¡Bienvenido/a a tu sesión con Chill English Bot 2.0!\n\nAntes de comenzar, cuéntame:\n\n1) ¿Cómo te sientes hoy?\n\n(Así ajustamos el ritmo de la clase)\n\n2) Objetivo de la sesión\n\n¿Qué quieres lograr en esta media hora?\n\n¿Refuerzo de gramática?\n\n¿Vocabulario específico?\n\n¿Speaking?\n\n¿Prepararte para una unidad del curso?\n\n3) Diagnóstico\n\nDices que quieres Inglés Intermedio.\nPara guiarte bien según la hoja de ruta, necesito saber:\n\n¿En qué File o unidad estás actualmente del nivel Intermediate?\n(File 7, 8, 9, 10, 11 o 12 — según el curso Regular/Intensivo)\n\n4) ¿Debes ponerte al día en alguna clase que faltaste?\n\n¡Listo para empezar cuando me digas! Ganbatte!",
+             "Quiero aprender ingles Intermedio": {
+                "response": "Awesome! Let's practice conversing more naturally. We could discuss travel, work, or opinions. What topic interests you today?",
                 "mode": "intermediate",
-                "system_prompt": "You are an English Tutor AI for Intermediate level students (B1/B2). You can use more complex grammar and vocabulary. Challenge the student slightly. Keep responses CONCISE (3-5 sentences)."
+                "system_prompt": "TEACHING CONTEXT: The user is INTERMEDIATE (B1/B2). Challenge them with opinions, future plans, and conditionals. Speak at a normal conversational speed."
             }
         }
 
         # Check if user message matches a starter prompt
         starter_data = starter_responses.get(user_message.strip())
 
+        # --- SESSION RETRIEVAL ---
+        chat_session = None
         if request.user.is_authenticated:
             if session_id := request.data.get('sessionId'):
                 if session_id != 'new' and session_id != 'null':
@@ -170,24 +215,50 @@ PRONUNCIATION FEEDBACK (when available):
             else:
                 chat_session = ChatSession.objects.create(user=request.user, title=user_message[:30] + "...")
             
-            # Update metadata if starter prompt
+        # --- PERSONA CONFIGURATION ---
+        persona = "friendly" # Default
+        
+        # 1. Check request for direct switch
+        if request.data.get('persona'):
+             persona = request.data.get('persona')
+             if chat_session:
+                 chat_session.metadata['persona'] = persona
+                 chat_session.save()
+        # 2. Check session metadata
+        elif chat_session and chat_session.metadata.get('persona'):
+             persona = chat_session.metadata.get('persona')
+        # 3. If new session and no persona, save default
+        elif chat_session:
+             chat_session.metadata['persona'] = persona
+             chat_session.save()
+
+        current_persona_config = personas.get(persona, personas["friendly"])
+        base_system_prompt = current_persona_config["system_prompt"]
+        voice_name = current_persona_config["voice"]
+
+        if chat_session:
+            # Update metadata if starter prompt (mode overrides persona system prompt context later)
             if starter_data:
                 chat_session.metadata['mode'] = starter_data['mode']
                 chat_session.save()
 
             # Save User Message
             ChatMessage.objects.create(session=chat_session, role='user', content=user_message)
+
             
             # Load history from DB for context
             db_messages = chat_session.messages.order_by('created_at')
             
             # Determine System Prompt
-            current_system_prompt = base_system_prompt # Default
+            current_system_prompt = base_system_prompt # Default from PERSONA
+            
+            # If mode is set (Starter), it overrides Persona prompt
+            # If mode is set (Starter), APPEND it to Persona prompt instead of replacing
             if chat_session.metadata.get('mode'):
-                # Find the system prompt for the mode
                 for key, val in starter_responses.items():
                     if val['mode'] == chat_session.metadata.get('mode'):
-                        current_system_prompt = val['system_prompt']
+                        # MERGE: Keep the persona (Who I am) + Add context (What I'm teaching)
+                        current_system_prompt += f"\n\n--- CURRENT LESSON CONTEXT ---\n{val['system_prompt']}"
                         break
             
             # --- ADD PRONUNCIATION CONTEXT TO SYSTEM PROMPT ---
@@ -201,7 +272,7 @@ PRONUNCIATION FEEDBACK (when available):
                 messages.append({"role": msg.role, "content": msg.content})
         else:
             # Fallback for unauthenticated
-            current_system_prompt = base_system_prompt
+            current_system_prompt = base_system_prompt 
             
             # Add pronunciation context for unauthenticated users too
             if pronunciation_data:
@@ -253,7 +324,10 @@ PRONUNCIATION FEEDBACK (when available):
                     audio_base64 = None
                     
                     if cleaned_chunk:
-                        audio_content = generate_speech(cleaned_chunk)
+                        # USE AZURE TTS
+                        from .azure_services import generate_speech as generate_speech_azure
+                        audio_content = generate_speech_azure(cleaned_chunk, voice_name=voice_name)
+                        
                         if audio_content:
                             audio_base64 = base64.b64encode(audio_content).decode('utf-8')
                         else:
@@ -340,7 +414,10 @@ PRONUNCIATION FEEDBACK (when available):
                             
                             # Only generate audio if buffer is long enough (e.g. > 50 chars) to reduce requests/choppiness
                             if len(speech_buffer) > 50:
-                                audio_content = generate_speech(speech_buffer.strip())
+                                # USE AZURE TTS
+                                from .azure_services import generate_speech as generate_speech_azure
+                                audio_content = generate_speech_azure(speech_buffer.strip(), voice_name=voice_name)
+                                
                                 audio_base64 = None
                                 if audio_content:
                                     audio_base64 = base64.b64encode(audio_content).decode('utf-8')
@@ -369,7 +446,10 @@ PRONUNCIATION FEEDBACK (when available):
             # Process remaining speech buffer / raw text
             if accumulated_raw_text.strip():
                 if speech_buffer.strip():
-                    audio_content = generate_speech(speech_buffer.strip())
+                    # USE AZURE TTS
+                    from .azure_services import generate_speech as generate_speech_azure
+                    audio_content = generate_speech_azure(speech_buffer.strip(), voice_name=voice_name)
+                    
                     audio_base64 = None
                     if audio_content:
                         audio_base64 = base64.b64encode(audio_content).decode('utf-8')
